@@ -1,0 +1,11 @@
+# Arquivos temporários do R
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+# Ignorar tudo dentro da pasta DATA
+DATA/
+
+# Ignorar o r project
+Cap02.Rproj
