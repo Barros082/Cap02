@@ -118,3 +118,5 @@ for (i in seq_along(y)) {
 }
 plotss[["pa_amount"]]
 plotss[["pop_t"]]
+
+#saving
