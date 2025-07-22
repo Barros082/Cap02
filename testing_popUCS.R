@@ -3,10 +3,12 @@
 library(tidyverse)
 library(sf)
 library(readxl)
+sf_use_s2(FALSE)
 
-PA_shp<-read_sf("DATA/BR_UC_UF_Publicacao_CD2022/BR_UC_UF_Publicacao_CD2022.shp") %>%
+PA_shp<-read_sf("DATA/BR_UC_UF_Publicacao_CD2022/BR_UC_UF_Publicacao_CD2022.shp") %>% 
   mutate(
-    across(.cols = c(1:3, 5, 7:10), as.factor)) %>% 
+    across(.cols = c(1:3, 5, 7:10), as.factor),
+    Bioma=if_else(is.na(Bioma), "Marinha", Bioma)) %>% 
   #st_crs()#4674
   glimpse
 
@@ -34,38 +36,85 @@ pop2022<-read_excel("DATA/Tabela_de_resultado_02.xlsx")[-1:-6,] %>%
   filter(!is.na(pop_total)) %>% #removing endnote: ""Fonte: IBGE [;...]"
   glimpse
 
+summary(PA_shp)
 summary(pop2022)
 
-# join 
-left_join(PA_shp %>% 
-            mutate(
-              NOME_UC_UF = case_when(
-                str_detect(NOME_UC_UF, "d\\?Ouro") ~ str_replace(NOME_UC_UF, "d\\?Ouro", "d'Ouro"),
-                str_detect(NOME_UC_UF, "d\\?Ostra") ~ str_replace(NOME_UC_UF, "d\\?Ostra", "d'Ostra"),
-                str_detect(NOME_UC_UF, "Itapará \\? Boiaçu") ~ str_replace(NOME_UC_UF, "\\?", "–"),
-                TRUE ~ str_replace_all(NOME_UC_UF, fixed("?"), "-")  # substituição genérica
-              ),
-              NOME_UC = case_when(
-                str_detect(NOME_UC, "d\\?Ouro") ~ str_replace(NOME_UC, "d\\?Ouro", "d'Ouro"),
-                str_detect(NOME_UC, "d\\?Ostra") ~ str_replace(NOME_UC, "d\\?Ostra", "d'Ostra"),
-                str_detect(NOME_UC, "Itapará \\? Boiaçu") ~ str_replace(NOME_UC, "\\?", "–"),
-                TRUE ~ str_replace_all(NOME_UC, fixed("?"), "-")
-              )),
-          pop2022, by=c(
-  "COD_UC"="UC_code", 
-  "NOME_UC"="UC_nome_clean", 
-  "CD_UC_UF"="UC_codeUF",
-  "NOME_UC_UF"="UC_nome_UF", 
-  "CD_CNUC"="Cod_cnuc", 
-  "COD_UF"="Cod_UF", 
-  "SG_UF"="Abrev_UF"
-)) %>% 
-  filter(is.na(pop_total)) %>%  View()
-
-pop2022 %>% 
-  filter(UC_nome_clean=="Reserva de Desenvolvimento Sustentável Itapará Boiaçu") %>% 
-  View()
-
-PA_shp%>% 
-  filter(NOME_UC=="Área de Proteção Ambiental de Guaraqueçaba") %>% 
+# understand the UC codes to join 
+dim(PA_shp)
+PA_shp %>% 
+  st_drop_geometry() %>% 
+  summarise(
+    n_distinct(COD_UC),
+    n_distinct(CD_UC_UF),
+    n_distinct(CD_CNUC),
+    n_distinct(NOME_UC), 
+    n_distinct(NOME_UC_UF)) %>% 
   glimpse
+# just CD_UC_UF had the same rows amount
+
+
+dim(pop2022)
+pop2022 %>% 
+  summarise(
+    n_distinct(UC_code),
+    n_distinct(UC_codeUF),
+    n_distinct(Cod_cnuc),
+    n_distinct(UC_nome_clean), 
+    n_distinct(UC_nome_UF)) %>% 
+  glimpse
+# just UC_codeUF had the same rows amount
+
+# join by code UC + UF
+
+UC_pop<-left_join(PA_shp, pop2022, 
+          by=c("CD_UC_UF"="UC_codeUF")) %>%
+  #filter(is.na(pop_total)) %>%  glimpse # there is no NA on population data
+  select(1:2, 5, 8:13, 16:24) %>%  glimpse
+
+DataExplorer::plot_missing(UC_pop)
+
+# preparing data to ggplot
+
+data_plots<-UC_pop %>% 
+  st_drop_geometry() %>% 
+  separate_rows(Bioma, sep = ",\\s*") %>% # \\s* to remove spaces
+  select(CD_UC_UF, Bioma, ESFERA, CATEGORIA, 13:15) %>% 
+  mutate(new_cat=case_when(
+    CATEGORIA=="Área de Proteção Ambiental" ~ "APA", 
+    CATEGORIA=="Área de Relevante Interesse Ecológico" ~ "ARIE", 
+    CATEGORIA%in%c("Estação Ecológica",
+                   "Monumento Natural",                       
+                   "Parque",                                  
+                   "Refúgio de Vida Silvestre",               
+                   "Reserva Biológica" ) ~ "PI", 
+    CATEGORIA%in%c("Floresta",
+                   "Reserva de Desenvolvimento Sustentável",  
+                   "Reserva de Fauna",                        
+                   "Reserva Extrativista") ~ "US",
+    CATEGORIA=="Reserva Particular do Patrimônio Natural" ~ "RPPN", 
+  )) %>% 
+  group_by(Bioma, new_cat) %>% 
+  summarise(
+    pa_amount=n_distinct(CD_UC_UF),
+    pop_t=sum(pop_total),
+    pop_i=sum(pop_ind),
+    pop_q=sum(pop_quil)) %>% #print(n=50)
+  glimpse
+
+# just to plot
+y<-c("pa_amount", "pop_t", "pop_i", "pop_q")
+plotss<-list()
+for (i in seq_along(y)) {
+  varname <- y[i]
+  plotss[[varname]] <- data_plots %>%
+    filter(Bioma!="Marinha") %>% 
+    ggplot() +
+    geom_point(aes(x = new_cat, 
+                   y = .data[[varname]], 
+                   color = new_cat)) +
+    facet_wrap(~Bioma, scales = "free_y") +
+    labs(y = varname) +
+    theme_classic()
+}
+plotss[["pa_amount"]]
+plotss[["pop_t"]]
