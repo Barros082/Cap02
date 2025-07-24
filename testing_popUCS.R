@@ -1,4 +1,4 @@
-# Understand Data
+# Understand UC Dataset ----
 
 library(tidyverse)
 library(sf)
@@ -118,3 +118,32 @@ for (i in seq_along(y)) {
 }
 plotss[["pa_amount"]]
 plotss[["pop_t"]]
+
+# Understand IT dataset ----
+#https://www.gov.br/funai/pt-br/atuacao/terras-indigenas/geoprocessamento-e-mapas
+
+IT_shp<-read_sf("DATA/tis_poligonais/tis_poligonaisPolygon.shp",
+        options = "ENCODING=LATIN1") %>% 
+  glimpse
+
+valid_IT<-st_make_valid(IT_shp) %>% 
+  mutate(
+    across(.cols=c(1, 2, 5, 
+                   6, 8, 9,
+                   12, 17), .fns=as.factor)
+  ) %>% 
+  select(-cr, -undadm_cod:-dominio_un, -epsg) %>% 
+  glimpse
+
+dim(valid_IT)
+summary(valid_IT)
+#any(!st_is_valid(valid_IT))
+
+
+
+
+
+
+
+
+
