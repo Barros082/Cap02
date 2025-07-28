@@ -140,8 +140,12 @@ summary(valid_IT)
 #any(!st_is_valid(valid_IT))
 
 
+# Understand Quilombolas dataset ----
+# https://www.gov.br/insa/pt-br/centrais-de-conteudo/mapas/mapas-em-shapefile/quilombos-incra.zip/view
 
-
+QUI_shp<-read_sf("DATA/Quilombos_INCRA/Quilombos-SAB-INCRA.shp",
+                options = "ENCODING=LATIN1") %>% 
+  glimpse
 
 
 
