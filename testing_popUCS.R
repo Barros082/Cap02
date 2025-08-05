@@ -137,6 +137,30 @@ UC_pop %>%
 #R. Pampa APA/RPPN -> só com pop e só sem pop (respectivamente)
 #R. Pantanal APA só tem pop e RPPN hard compare
 
+# add management data from (https://dados.gov.br/dados/conjuntos-dados/unidadesdeconservacao)
+
+cnuc_info<-read.csv("DATA/cnuc_2024_10.csv", sep=";") %>% 
+  select(2, 4, 9, 10, 14, 15) %>%
+  mutate(
+    across(.cols=c(1, 5:6), .fns=as.factor), 
+    Nome.da.UC=str_to_lower(Nome.da.UC )) %>% 
+  #summarise(n_distinct(Código.UC))#3119
+  glimpse
+
+# não pode juntar apenas por CD_CNUC pq tem NA.
+PA_shp %>% st_drop_geometry() %>%
+  summarise(n_distinct(CD_CNUC))#2267
+# devemos usar o nome tbm
+
+PA_shp %>% 
+  mutate(nome_uc=str_to_lower(NOME_UC)) %>%
+  left_join(cnuc_info, by=c(
+    "CD_CNUC"="Código.UC",
+    "nome_uc"="Nome.da.UC"
+  )) %>%
+  DataExplorer::plot_missing() # ainda tem uns 200 que tão errados ou com NA
+# isso não vai ser simples
+
 # just to plot
 y<-c("pa_amount", "pop_t", "pop_i", "pop_q")
 plotss<-list()
