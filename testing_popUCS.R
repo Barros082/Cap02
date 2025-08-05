@@ -101,6 +101,42 @@ data_plots<-UC_pop %>%
     pop_q=sum(pop_quil)) %>% #print(n=50)
   glimpse
 
+
+# counting PA with pop and withou pop
+
+UC_pop %>% 
+  st_drop_geometry() %>% 
+  separate_rows(Bioma, sep = ",\\s*") %>% # \\s* to remove spaces
+  select(CD_UC_UF, Bioma, ESFERA, CATEGORIA, 13:15) %>% 
+  mutate(new_cat=case_when(
+    CATEGORIA=="Área de Proteção Ambiental" ~ "APA", 
+    CATEGORIA=="Área de Relevante Interesse Ecológico" ~ "ARIE", 
+    CATEGORIA%in%c("Estação Ecológica",
+                   "Monumento Natural",                       
+                   "Parque",                                  
+                   "Refúgio de Vida Silvestre",               
+                   "Reserva Biológica" ) ~ "PI", 
+    CATEGORIA%in%c("Floresta",
+                   "Reserva de Desenvolvimento Sustentável",  
+                   "Reserva de Fauna",                        
+                   "Reserva Extrativista") ~ "US",
+    CATEGORIA=="Reserva Particular do Patrimônio Natural" ~ "RPPN", 
+  ), 
+  pop_cat=case_when(
+    pop_total>=1 ~ "with_pop",
+    pop_total==0 ~ "without_pop"
+  )) %>% 
+  group_by(Bioma, new_cat, pop_cat) %>%
+  summarise(
+    pa_amount=n_distinct(CD_UC_UF)) %>% 
+  print(n=50)
+#R. Amazon APA/RPPN -> hard compare
+#R. Caatinga APA só tem with pop, RPPN não nda
+#R. Cerrado RPPN -> hard compare
+#R. Mata atlântiva -> we can compare all
+#R. Pampa APA/RPPN -> só com pop e só sem pop (respectivamente)
+#R. Pantanal APA só tem pop e RPPN hard compare
+
 # just to plot
 y<-c("pa_amount", "pop_t", "pop_i", "pop_q")
 plotss<-list()
