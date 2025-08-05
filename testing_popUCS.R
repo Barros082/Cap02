@@ -102,7 +102,7 @@ data_plots<-UC_pop %>%
   glimpse
 
 
-# counting PA with pop and withou pop
+# counting PA with pop and without pop
 
 UC_pop %>% 
   st_drop_geometry() %>% 
@@ -159,7 +159,44 @@ PA_shp %>%
     "nome_uc"="Nome.da.UC"
   )) %>%
   DataExplorer::plot_missing() # ainda tem uns 200 que tão errados ou com NA
-# isso não vai ser simples
+
+
+# amount of management by PA type
+
+UC_pop %>% 
+  mutate(nome_uc=str_to_lower(UC_nome_clean)) %>%
+  left_join(cnuc_info, by=c(
+    "Cod_cnuc"="Código.UC",
+    "nome_uc"="Nome.da.UC"
+  )) %>% 
+  st_drop_geometry() %>% 
+  separate_rows(Bioma, sep = ",\\s*") %>%# \\s* to remove spaces
+  select(CD_UC_UF, Bioma, ESFERA, 
+         CATEGORIA, 13:15, 21:22) %>% 
+  mutate(new_cat=case_when(
+    CATEGORIA=="Área de Proteção Ambiental" ~ "APA", 
+    CATEGORIA=="Área de Relevante Interesse Ecológico" ~ "ARIE", 
+    CATEGORIA%in%c("Estação Ecológica",
+                   "Monumento Natural",                       
+                   "Parque",                                  
+                   "Refúgio de Vida Silvestre",               
+                   "Reserva Biológica" ) ~ "PI", 
+    CATEGORIA%in%c("Floresta",
+                   "Reserva de Desenvolvimento Sustentável",  
+                   "Reserva de Fauna",                        
+                   "Reserva Extrativista") ~ "US",
+    CATEGORIA=="Reserva Particular do Patrimônio Natural" ~ "RPPN", 
+  ),
+  gov_level=case_when(
+    Plano.de.Manejo=="Não" & Conselho.Gestor=="Não" ~ "nao",
+    Plano.de.Manejo=="Sim" & Conselho.Gestor=="Não" ~ "so_plan",
+    Plano.de.Manejo=="Não" & Conselho.Gestor=="Sim" ~ "so_comt",
+    Plano.de.Manejo=="Sim" & Conselho.Gestor=="Sim" ~ "sim")) %>% 
+  group_by(Bioma, new_cat, gov_level) %>%
+  summarise(
+    pa_amount=n_distinct(CD_UC_UF)) %>% 
+  print(n=103)
+  
 
 # just to plot
 y<-c("pa_amount", "pop_t", "pop_i", "pop_q")
