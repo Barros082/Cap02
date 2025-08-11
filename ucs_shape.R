@@ -118,9 +118,6 @@ shp_intermediario<-Cat_PA_sh %>%
 # filter(test==FALSE) %>%  glimpse
 
 #dir.create("Outputs", recursive = T)
-write_sf(shp_intermediario,
-         "C:/temp/cat_shp_intermd_v2.gpkg",
-         layer = "cat_shp_intermediario")
+saveRDS(shp_intermediario, "cat_intermed.rds")
 
-
-
+  
