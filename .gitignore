@@ -6,6 +6,7 @@
 
 # Ignorar tudo dentro da pasta DATA
 DATA/
+Outputs/
 
 # Ignorar o r project
 Cap02.Rproj
