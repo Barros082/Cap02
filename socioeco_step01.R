@@ -131,21 +131,71 @@ socioeco_join%>%
   
 # we need to think again if vale a pena continuar
   
+# estimating the percent of PA that we had from the total of PA
 
+PA_step01 %>% 
+  st_drop_geometry() %>% 
+  group_by(Bioma, new_cat) %>% 
+  summarise(n_distinct(CD_UC_UF)) %>%
+  print(n=100)
+  
+# Amazon - APA 36 / 11 ~ 30.55%
+# Amazon - ARIE 6 / 0 
+# Amazon - PI 110 / 27 ~ 24.54%
+# Amazon - RPPN 16 / 0
+# Amazon - US 166 / 58 ~ 34.93%
 
+# Caatinga - APA 43 / 18 ~ 41.86%
+# Caatinga - ARIE 8 / 0
+# Caatinga - PI 64 / 17 ~ 26.56%
+# Caatinga - RPPN 74 / 0
+# Caatinga - US 8 / 2 ~ 25 % 
 
+# Cerrado - APA 101 / 33 ~ 32.67%
+# Cerrado - ARIE 20 / 3
+# Cerrado - PI 141 / 16 ~ 11.34%
+# Cerrado - RPPN 85 / 0
+# Cerrado - US 15 / 0
 
+# Mata Atlântica - APA 247 / 87 ~ 35.22%
+# Mata Atlântica - ARIE 48 / 5
+# Mata Atlântica -  PI 504 / 96 ~ 19.04%
+# Mata Atlântica - RPPN 530 / 0 
+# Mata Atlântica - US 57 / 9 ~ 15.78%
 
+# estimating the percent of PA that we had from PA with population
+socioeco_join%>%
+  left_join(PA_step01, by=c(
+    "COD_UC_UF"="CD_UC_UF"
+  )) %>% 
+  filter(!Pop==0) %>% 
+  group_by(Bioma, new_cat) %>% 
+  summarise(n_distinct(COD_UC_UF)) %>%
+  print(n=100)
 
+# Amazon - APA 33 / 11 ~ 33.33%
+# Amazon - ARIE 3 / 0 
+# Amazon - PI 53 / 27 ~ 50.94% 
+# Amazon - RPPN 3 / 0
+# Amazon - US 139 / 58 ~ 41.72%
 
+# Caatinga - APA 43 / 18 ~ 41.86 %
+# Caatinga - ARIE 6 / 0 
+# Caatinga - PI 37 / 17 ~ 45.94%
+# Caatinga - RPPN 6 / 0
+# Caatinga - US 6 / 2 ~ 33.33%
 
+# Cerrado - APA  85 / 33 ~ 38.82%
+# Cerrado - ARIE  10 / 3
+# Cerrado - PI  71 / 16 ~ 22.53%
+# Cerrado - RPPN  2 / 0
+# Cerrado - US  11 / 0
 
-
-
-
-
-
-
+# Mata Atlântica - APA  227 / 87 ~ 38.32%
+# Mata Atlântica - ARIE  30 / 5
+# Mata Atlântica -  PI  258 / 96 ~ 37.20%
+# Mata Atlântica - RPPN  28 / 0 
+# Mata Atlântica - US  40 / 9 ~ 22.50%
 
 
 
