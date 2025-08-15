@@ -218,8 +218,9 @@ plotss[["pop_t"]]
 
 # Understand IT dataset ----
 #https://www.gov.br/funai/pt-br/atuacao/terras-indigenas/geoprocessamento-e-mapas
-
-IT_shp<-read_sf("DATA/tis_poligonais/tis_poligonaisPolygon.shp",
+# TI = Em estudo < Delimitada < Declarada < Homologada < Regularizada
+# REserva Indigena = Encaminhada RI <Regularizada
+IT_shp<-read_sf("DATA/garbage/tis_poligonais/tis_poligonaisPolygon.shp",
         options = "ENCODING=LATIN1") %>% 
   glimpse
 
@@ -235,6 +236,60 @@ valid_IT<-st_make_valid(IT_shp) %>%
 dim(valid_IT)
 summary(valid_IT)
 #any(!st_is_valid(valid_IT))
+
+right_TI<-valid_IT %>% 
+  filter(fase_ti%in%c("Homologada", 
+                      "Regularizada")) %>% 
+  glimpse
+
+dup_shp <- right_TI %>% 
+  st_drop_geometry() %>% 
+  group_by(uf_sigla) %>% 
+  count(terrai_nom) %>% 
+  filter(n > 1) 
+# Kariri-Xocó, Uneiuxi
+
+#right_TI %>%
+#  filter(terrai_nom=="Uneiuxi") %>%
+#  ggplot() + geom_sf(aes(color=terrai_cod),alpha=0.5)
+
+right_TI %>%
+  filter(terrai_nom%in%dup_shp$terrai_nom) %>% 
+  group_by(terrai_nom) %>% 
+  summarise(.groups = "drop") %>% 
+  glimpse
+
+teste_funai<-right_TI %>% 
+  filter(!terrai_nom%in%dup_shp$terrai_nom) %>% 
+  glimpse
+
+pop_ind %>% 
+  left_join(teste_funai, by=c(
+  "name_TI"="terrai_nom"
+)) %>%  glimpse
+
+pop_ind<-read_xlsx("DATA/garbage/pop_ind.xlsx")[-1:-5, c(-1, -4:-5)] %>%
+  rename(code_TI_IBGE=`...2`, 
+         name_TI=`...3`, 
+         pop=`...6`)
+
+dup_pop <- pop_ind %>%
+  count(name_TI) %>%
+  filter(n > 1)
+
+teste_ibge<-pop_ind %>%
+  filter(!name_TI%in%dup_pop$name_TI) %>% #View()
+  glimpse
+  
+teste_ibge %>% left_join(teste_funai, by=c(
+    "name_TI"="terrai_nom"
+  )) %>%
+  #count(name_TI) %>% filter(n > 1)
+  DataExplorer::plot_missing()
+# acho que o certo pé realmente tirar os duplicatos
+# e precisamos ver o que estão com Na realmente rpas resolver da melhor forma
+
+
 
 
 # Understand Quilombolas dataset ----
