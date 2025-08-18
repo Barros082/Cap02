@@ -295,11 +295,25 @@ teste_ibge %>% left_join(teste_funai, by=c(
 # Understand Quilombolas dataset ----
 # https://www.gov.br/insa/pt-br/centrais-de-conteudo/mapas/mapas-em-shapefile/quilombos-incra.zip/view
 
-QUI_shp<-read_sf("DATA/Quilombos_INCRA/Quilombos-SAB-INCRA.shp",
-                options = "ENCODING=LATIN1") %>% 
+QUI_shp<-read_sf("DATA/garbage/Quilombos_INCRA/Quilombos-SAB-INCRA.shp",
+                options = "ENCODING=LATIN1") %>%
+  mutate(name=str_to_lower(name)) %>% 
+  glimpse
+
+pop_QUI<-read_xlsx("DATA/pop_QUI2022.xlsx") [-1:-5, c(-1, -4)] %>% 
+  rename(code_QUI_IBGE=`...2`, 
+         name_QUI=`...3`, 
+         pop=`...5`) %>% 
+  filter(!is.na(pop)) %>% 
+  mutate(
+    pop=if_else(pop=="-", "0", pop),
+    pop=as.numeric(pop), 
+    name_QUI=str_to_lower(name_QUI)) %>% 
   glimpse
 
 
-
-
-
+QUI_shp %>% 
+  left_join(pop_QUI, by=c(
+    "name"="name_QUI"
+  )) %>% 
+  filter(!is.na(pop)) %>%  glimpse

@@ -3,7 +3,7 @@
 library(tidyverse)
 library(readxl)
 
-# Manual download trhough SIDRA plataform. 
+# Manual download through SIDRA plataform. 
 
 # Population - cofactor
 popUC<-read_xlsx("DATA/pop_UC2022.xlsx")[-1:-5, c(-1, -4:-5)] %>%
