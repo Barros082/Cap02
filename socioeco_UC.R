@@ -124,14 +124,12 @@ UC_socio<-readRDS("Outputs/PA_clean_by_year.rds") %>%
   #group_by(Bioma, new_cat) %>% 
   #summarise(n_distinct(COD_UC)) %>% 
   #print(n=100)
-  select(-X_count, -other_count) %>% 
+  select(-X_count, -other_count) %>%
+  mutate(
+    across(.cols=c(lit:dead_less1year), .fns=as.numeric)) %>% 
   glimpse
 
 saveRDS(UC_socio, "Outputs/UC_socio_data.rds")
-
-
-
-# IT ----
 
 
 
