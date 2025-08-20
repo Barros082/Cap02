@@ -56,6 +56,9 @@ end_funai<-right_TI %>%
   filter(!terrai_nom%in%dup_shp$terrai_nom) %>% 
   glimpse #497
 
+sf::write_sf(end_funai, "Outputs/IT_shape.gpkg")
+
+# garbage - just to test
 # testing join with  socioecnomic IBGE data
 pop_ind<-read_xlsx("DATA/garbage/pop_ind.xlsx")[-1:-5, c(-1, -4:-5)] %>%
   rename(code_TI_IBGE=`...2`, 
@@ -80,5 +83,3 @@ TI_cleaned<-end_funai %>% left_join(pop_IT, by=c(
          pop=if_else(pop=="-", "0", pop),
          pop=as.numeric(pop)) %>%  
   glimpse
-
-sf::write_sf(end_funai, "Outputs/IT_shape.gpkg")
