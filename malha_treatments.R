@@ -34,4 +34,6 @@ PA_shape<-bind_rows(UC_shape, IT_shape) %>%
          everything()) %>%  glimpse
   
 # We need to collect manually the years from each IT. 
+write_sf(PA_shape, "Outputs/PA_IT_shape.gpkg")
+
 
