@@ -15,9 +15,8 @@ terraOptions(tempdir = "D:/Arthur_Barros/Doutorado/CAP02/Cap02/temp")
 PA_shape<-read_sf("Outputs/PA_IT_shape.gpkg")
 
 list_clim_files <- list.files(
-  here("DATA/wordclim_vars"),
-  pattern = "\\.tif$", full.names = TRUE
-)
+  here("DATA/WorldClim"),
+  pattern = "\\.tif$", full.names = TRUE)
 
 prec_files <- list_clim_files[str_detect(list_clim_files, "prec")]
 tmin_files <- list_clim_files[str_detect(list_clim_files, "tmin")]
@@ -53,4 +52,16 @@ for (var_name in names(clim_vars)) {
   res_all[[var_name]] <- df_temp
 }
 
-res_final <- bind_rows(res_all)
+res_final <- bind_rows(res_all) %>% 
+  pivot_wider(names_from = var, 
+              values_from = value) %>% 
+  mutate(id=as.factor(id)) %>% 
+  glimpse
+
+res_final %>%  summary()
+
+PA_with_clim <- PA_shape %>%
+  left_join(res_final, by = c("new_code"="id")) %>% 
+  glimpse
+
+write_sf(PA_with_clim, "Outputs/PA_elevation.gpkg")
