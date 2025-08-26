@@ -64,4 +64,4 @@ PA_with_clim <- PA_shape %>%
   left_join(res_final, by = c("new_code"="id")) %>% 
   glimpse
 
-write_sf(PA_with_clim, "Outputs/PA_elevation.gpkg")
+write_sf(PA_with_clim, "Outputs/PA_climatic.gpkg")
