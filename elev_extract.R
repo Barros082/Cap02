@@ -83,6 +83,9 @@ options(scipen = 99999)
 results_df %>%  summary()
 
 PA_with_elevation <- PA_shape %>%
-  left_join(results_df, by = "new_code")
+  left_join(results_df, by = "new_code") %>% 
+  rename(elevation_mean=stdev) %>%  
+  mutate(new_code=as.factor(new_code)) %>% 
+  st_as_sf()
 
-write_sf(PA_with_elevation, "Outputs/PA_elevation")
+write_sf(PA_with_elevation, "Outputs/PA_elevation.gpkg")
