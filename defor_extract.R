@@ -77,52 +77,25 @@ for (i in seq_along(raster_list)) {
   areas_list[[i]] <- class_areas
 }
 
-areas_by_class <- bind_rows(areas_list)
+areas_by_class <- bind_rows(areas_list) %>% 
+  mutate(new_code=as.factor(new_code))
+
+areas_by_class %>% summary()
+
+defor_PA<-areas_by_class %>% 
+  rowwise() %>%
+  mutate(defor_amount= sum(c_across(c(class_4_area, 
+                                      class_6_area)),
+                           na.rm = TRUE)) %>%
+  ungroup() %>%
+  dplyr::select(new_code, defor_amount) %>% 
+  left_join(PA_shape %>% 
+              mutate(new_code=as.factor(new_code )), 
+            by="new_code") %>% 
+  st_as_sf() %>% 
+  glimpse # we just lose one row
+
+saveRDS(areas_by_class, "Outputs/mapbiomas_raw_extract.rds")
+write_sf(defor_PA, "Outputs/PA_defor.gpkg")
 
 
-
-
-
-
-
-####
-
-crop_defor<-terra::crop(defor22, vect(PA_crs_small))  
-
-mask_defor<-terra::mask(crop_defor, vect(PA_crs_small))  
-
-teste<-PA_crs_small[1:10,]
-crop_test<-terra::crop(defor22, vect(teste))
-mask_test<-terra::mask(crop_test, vect(teste))  
-
-
-
-defor22_proj <- project(mask_defor, "EPSG:4674", 
-                        method = "near")
-
-
-
-PA_crs %>%
-  split(.$new_code) %>%
-  lapply(function(df) {
-    code <- unique(df$new_code)
-    message("Processando ", code)
-    
-    raster_list <- lapply(defor22, function(p) {
-      crop_defor<-terra::crop(defor22, vect(PA_crs_small))  
-      mask_defor<-terra::mask(crop_defor, vect(PA_crs_small))
-      r <- terra::project(mask_defor, "EPSG:4674", 
-                          method = "near")
-      return(r)
-    })
-  })
-
-
-
-
-
-#extracting values
-
-
-#saving
-write_sf(, "Outputs/PA_defor.gpkg")
