@@ -8,6 +8,7 @@
 DATA/
 Outputs/
 temp/
+temp_terra/
 
 # Ignorar o r project
 Cap02.Rproj
