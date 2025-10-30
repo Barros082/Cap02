@@ -1,4 +1,87 @@
 # Excluir
+#### from Distance_extract.R (30/10/2025) ----
+#Step 02
+urb_cells <- as.points(urb_br, values = FALSE)
+dmat <- st_distance(pointss_5880, urb_cells)
+min_dist <- apply(dmat, 1, min, na.rm = TRUE)
+
+# step 02
+dist_all <- list()
+for (i in seq_along(pointss_5880_split)) {
+  cat("Chunk", i, "of", length(pointss_5880_split), "\n")
+  pts_chunk <- pointss_5880_split[[i]]
+  r_crop <- crop(urb_br, ext(vect(pts_chunk)))
+  r_dist <- distance(r_crop)
+  dvals <- terra::extract(r_dist, vect(pts_chunk))
+  dvals <- dvals %>%
+    mutate(Cod_setor = pts_chunk$new_code,
+           chunk = i)
+  
+  dist_all[[i]] <- dvals
+  gc()
+}
+
+dist22_allBR<-do.call(rbind,  dist_all)
+
+
+
+
+### 2
+dist_all<-list()
+for (nm in seq_along(list_LU22_files)) {
+  r <- rast(list_LU22_files[[nm]])
+  #r_crs<-crs(r)
+  #print(r_crs)}
+  r_crp  <- crop(r, vect(pointss))
+  r_mask <- mask(r_crp, vect(pointss))
+  r_urb <- ifel(r_mask == 24, 1, NA)
+  r_proj <- project(r_urb, "EPSG:5880")
+  r_dist <- distance(r_proj)
+  dvals <- terra::extract(r_dist, vect(pointss_5880)) %>% 
+    mutate(Cod_setor=pointss$new_code)
+  
+  dist_all[[nm]] <- dvals
+}
+
+dist22_allBR<-do.call(rbind, dist_all)
+
+
+
+
+# idea: municipal seats ----
+# Distance to municipal seats
+
+library(tidyverse)
+library(sf)        
+library(geobr)
+
+sf::sf_use_s2(F)
+
+PA_shape<-read_sf("Outputs/PA_IT_shape.gpkg")
+
+pointss<-PA_shape %>% 
+  st_as_sf() %>%
+  st_transform("EPSG:5880") %>% 
+  mutate(centroid = st_centroid(geom)) %>% 
+  dplyr::select(new_code, centroid) %>% 
+  glimpse
+
+sede_muni<-geobr::read_municipal_seat() %>% 
+  st_transform("EPSG:5880") %>% 
+  dplyr::select(1) %>% 
+  glimpse
+
+
+dist_matrix <- st_distance(pointss$centroid, sede_muni)
+min_dist <- apply(dist_matrix, 1, min)
+
+dist_PA <- tibble(
+  new_code   = as.factor(pointss$new_code),
+  min_dist_m = as.numeric(min_dist)) %>%  glimpse
+
+
+saveRDS(dist_PA, "Outputs/PA_distance.rds")
+
 
 #### from ucs_shape.R (28/10/2025) ----
 
