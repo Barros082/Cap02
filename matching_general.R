@@ -6,6 +6,23 @@ library(MatchIt)
 library(cobalt)
 library(corrplot)
 
+# are there PA the was in more than 1 state?
+#PA_state<-readRDS("Outputs/PA_balanced.rds") %>% #1134
+#  filter(!new_cat%in%c("RPPN", "ARIE")) %>% #1087
+#  filter(!name_biome%in%c("Pampa", "Pantanal")) %>% #1073
+#  st_intersection(., 
+#                  geobr::read_state() %>%  
+#                    select(1:2, geom) %>% 
+#                    st_transform(., "EPSG:5880")
+#                  ) %>% 
+#  st_drop_geometry() %>% 
+#  group_by(abbrev_state, new_cat) %>% 
+#  summarise(
+#    N_PA=n_distinct(new_code)
+#  ) %>%  
+#  print(n=100)
+
+
 
 # Idea 1 - one match to all using the biome as exact ----
 PA_data<-readRDS("Outputs/PA_balanced.rds") %>% #1134
@@ -139,6 +156,71 @@ love_plots
 love_plots2
 balance_tab
 matching_results
+
+# balancing vars ----
+# SEA 
+rmk.ITxSEA<-PA_matching_list_step02[[1]] %>% 
+  select(-Pop, -PA_area) %>% glimpse
+rmk.ITxSEA_formula_match <- update(formula_match, . ~ .
+                                    - Pop
+                                    - PA_area)
+rmk.ITxSEA_match_model <- matchit(rmk.ITxSEA_formula_match, 
+                                   data = rmk.ITxSEA, 
+                                   method = "full", 
+                                   distance = "glm",
+                                   link = "logit", 
+                                   exact = ~ name_biome,
+                                   estimand = "ATT",
+                                   verbose = TRUE,
+                                   include.obj = FALSE)
+balance_tab[["ITxSEA"]]
+bal.tab(rmk.ITxSEA_match_model, thresholds = c(m = .25), 
+        v.threshold = 2, un = TRUE) # balanced! removed pop and area
+
+# SPA
+rmk.ITxSPA<-PA_matching_list_step02[[2]] %>% 
+  select(-elevation_mean, -dist_to_urban
+         ) %>% glimpse
+rmk.ITxSPA_formula_match <- update(formula_match, . ~ .
+                                   - elevation_mean
+                                   - dist_to_urban
+                                   )
+rmk.ITxSPA_match_model <- matchit(rmk.ITxSPA_formula_match, 
+                                  data = rmk.ITxSPA, 
+                                  method = "full", 
+                                  distance = "glm",
+                                  link = "logit", 
+                                  exact = ~ name_biome,
+                                  estimand = "ATT",
+                                  verbose = TRUE,
+                                  include.obj = FALSE)
+balance_tab[["ITxSPA"]]
+bal.tab(rmk.ITxSPA_match_model, thresholds = c(m = .25), 
+        v.threshold = 2, un = TRUE) # balanced! removed elevation and urban distance
+
+# SUPA
+rmk.ITxSUPA<-PA_matching_list_step02[[3]] %>% 
+  select(-elevation_mean, -prec
+  ) %>% glimpse
+rmk.ITxSUPA_formula_match <- update(formula_match, . ~ .
+                                   - elevation_mean
+                                   - prec
+)
+rmk.ITxSUPA_match_model <- matchit(rmk.ITxSUPA_formula_match, 
+                                  data = rmk.ITxSUPA, 
+                                  method = "full", 
+                                  distance = "glm",
+                                  link = "logit", 
+                                  exact = ~ name_biome,
+                                  estimand = "ATT",
+                                  verbose = TRUE,
+                                  include.obj = FALSE)
+balance_tab[["ITxSUPA"]]
+bal.tab(rmk.ITxSUPA_match_model, thresholds = c(m = .25), 
+        v.threshold = 2, un = TRUE) # balanced! removed elevation and precipitation
+
+
+
 
 # Idea 2 - one match to each biome ----
 
