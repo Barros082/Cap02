@@ -78,7 +78,7 @@ PA_almost_done<-PA_full %>%
 
 # Estimating PA area
 PA_finished<-PA_almost_done %>% 
-  st_transform(., "EPSG:5880") %>% #1221
+  st_transform(., "EPSG:5880") %>% #1209
   st_make_valid() %>% 
   mutate(
     PA_area=st_area(geom), # m²
@@ -90,7 +90,7 @@ PA_finished<-PA_almost_done %>%
   filter(!is.na(prec)) %>%
   #filter(testgeom==FALSE) %>% glimpse # 0 
   select(-yr, -testgeom) %>% 
-  glimpse()  #1217
+  glimpse()  #1205
 
 #how many PA we have for each biome? ----
 biomas<-geobr::read_biomes() %>% 
@@ -121,7 +121,7 @@ duplicated_by_biome<-st_intersection(PA_finished, biomas) %>%
 
 st_intersection(PA_finished, biomas) %>% 
   st_drop_geometry() %>%
-  filter(!new_code%in%duplicated_by_biome$new_code) %>% #-166
+  filter(!new_code%in%duplicated_by_biome$new_code) %>% #-166 (2*83)
   filter(!new_cat%in%c(
     "APA", "ARIE", "RPPN"
   )) %>% 
@@ -143,7 +143,25 @@ PA_done<-st_intersection(PA_finished, biomas) %>%
     lat=st_coordinates(centroid)[,2],
     long=st_coordinates(centroid)[,1], 
   ) %>% 
-  glimpse
+  glimpse #1122
 
 saveRDS(PA_done, "Outputs/PA_balanced.rds")
-  
+
+
+# understand how many PA we have----
+
+# are there PA the was in more than 1 state?
+#PA_state<-readRDS("Outputs/PA_balanced.rds") %>% #1122
+#  filter(!new_cat%in%c("RPPN", "ARIE")) %>% #1075
+#  filter(!name_biome%in%c("Pampa", "Pantanal")) %>% #1061
+#  st_intersection(., 
+#                  geobr::read_state() %>%  
+#                    select(1:2, geom) %>% 
+#                    st_transform(., "EPSG:5880")
+#                  ) %>% 
+#  st_drop_geometry() %>% 
+#  group_by(abbrev_state, new_cat) %>% 
+#  summarise(
+#    N_PA=n_distinct(new_code)
+#  ) %>%  
+#  print(n=100)
