@@ -6,24 +6,6 @@ library(MatchIt)
 library(cobalt)
 library(corrplot)
 
-# are there PA the was in more than 1 state?
-#PA_state<-readRDS("Outputs/PA_balanced.rds") %>% #1134
-#  filter(!new_cat%in%c("RPPN", "ARIE")) %>% #1087
-#  filter(!name_biome%in%c("Pampa", "Pantanal")) %>% #1073
-#  st_intersection(., 
-#                  geobr::read_state() %>%  
-#                    select(1:2, geom) %>% 
-#                    st_transform(., "EPSG:5880")
-#                  ) %>% 
-#  st_drop_geometry() %>% 
-#  group_by(abbrev_state, new_cat) %>% 
-#  summarise(
-#    N_PA=n_distinct(new_code)
-#  ) %>%  
-#  print(n=100)
-
-
-
 # Idea 1 - one match to all using the biome as exact ----
 PA_data<-readRDS("Outputs/PA_balanced.rds") %>% #1134
   filter(!new_cat%in%c("RPPN", "ARIE")) %>% #1087
