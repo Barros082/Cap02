@@ -22,6 +22,12 @@
 
 10) `Distance_extract.R` -> Estimating distance to urban pixel. We Should use mapbiomas land use data and PA_IT_shape.gpkg.
 
+11) `Balancing_to_matching.R` -> Balance each dataframe created until now and generates PA_balanced.
+
+12) `inc22_PA.R` -> The idea here is include income per capita to use as an outcome. We use PA_balanced and generates PA_balanced_with_incpcp.rds.
+
+13) `matching_general.R`
+
 ### To exclude Script:
 
 `testing_popUCS.R `-> A script to test data from indigenous, ucs, quilombos with populations (UBGE) data
