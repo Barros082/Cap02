@@ -7,49 +7,59 @@ library(cobalt)
 library(corrplot)
 
 # Idea 1 - one match to all using the biome as exact ----
-PA_data<-readRDS("Outputs/PA_balanced.rds") %>% #1134
-  filter(!new_cat%in%c("RPPN", "ARIE")) %>% #1087
-  filter(!name_biome%in%c("Pampa", "Pantanal")) %>% #1073
+PA_data<-readRDS("Outputs/PA_balanced_with_incpcp.rds") %>% #1122
+  filter(!new_cat%in%c("RPPN", "ARIE", "APA")) %>% #769
+  filter(!name_biome%in%c("Pampa", "Pantanal")) %>%  #758
   glimpse
 
 # correlation
 corr_data<-PA_data %>% 
-  st_drop_geometry() %>% 
+  sf::st_drop_geometry() %>% 
   select(-1:-3, 
          -yr_creation, 
          -name_biome:-centroid, 
          -water:-dead_less1year, 
-         -defor_amount) %>%  glimpse
+         -defor_amount, 
+         -geom) %>%  glimpse
 
 corr_matrix <- cor(corr_data)
 
 corrplot(corr_matrix, method = "circle", 
          tl.col = "black", tl.srt = 45, addCoef.col = "black")
 #considering 0.7 as trehshold, we will remove:
-# tmin, tmax
+# tmin, tmax, water:dead_less1year
 
 PA_matching_step01 <- PA_data %>%
   st_drop_geometry() %>% 
   select(-tmin, -tmax, # correlated
          -yr_creation, -centroid, #dummies
-         -water:-dead_less1year, #outputs
+         -water:-dead_less1year, #outputs 
+         -inc_pcp_by_area, #outputs
          -defor_amount) %>% 
-  mutate(Treat=case_when(
-    new_cat=="IT"~1,
-    TRUE ~0
-  )) %>% 
   group_by(new_cat) %>% 
   group_split()
 
-ITxSEA<-full_join(PA_matching_step01[[2]],
-                  PA_matching_step01[[1]]) 
-ITxSPA<-full_join(PA_matching_step01[[2]], 
-                  PA_matching_step01[[3]]) 
-ITxSUPA<-full_join(PA_matching_step01[[2]], 
-                   PA_matching_step01[[4]]) 
+SUPAxSPA<-full_join(PA_matching_step01[[3]],
+                  PA_matching_step01[[2]]) %>% 
+  mutate(Treat=case_when(
+    new_cat=="US"~1,
+    TRUE ~0)) %>% 
+  glimpse
+ITxSPA<-full_join(PA_matching_step01[[1]], 
+                  PA_matching_step01[[2]]) %>% 
+  mutate(Treat=case_when(
+    new_cat=="IT"~1,
+    TRUE ~0))%>% 
+  glimpse
+ITxSUPA<-full_join(PA_matching_step01[[1]], 
+                   PA_matching_step01[[3]]) %>% 
+  mutate(Treat=case_when(
+    new_cat=="IT"~1,
+    TRUE ~0))%>% 
+  glimpse
 
-PA_matching_list<-list(ITxSEA, ITxSPA, ITxSUPA)
-PA_matching_names<-c("ITxSEA", "ITxSPA", "ITxSUPA")
+PA_matching_list<-list(SUPAxSPA, ITxSPA, ITxSUPA)
+PA_matching_names<-c("SUPAxSPA", "ITxSPA", "ITxSUPA")
 
 PA_matching_list_step02<-lapply(PA_matching_list, function(x){
   df_x<-x %>% 
@@ -138,16 +148,24 @@ love_plots
 love_plots2
 balance_tab
 matching_results
+#supa x spa
+# prec e expo_time
+#it x spa
+# expo_time e dist_to_urban(0.2503)
+#it x supa
+# elev e precp
+
 
 # balancing vars ----
-# SEA 
-rmk.ITxSEA<-PA_matching_list_step02[[1]] %>% 
-  select(-Pop, -PA_area) %>% glimpse
-rmk.ITxSEA_formula_match <- update(formula_match, . ~ .
-                                    - Pop
+# SUPAxSPA
+rmk.SUPAxSPA<-PA_matching_list_step02[[1]] %>% 
+  select(-prec, -expo_time, -PA_area) %>% glimpse
+rmk.SUPAxSPA_formula_match <- update(formula_match, . ~ .
+                                    - prec
+                                    - expo_time
                                     - PA_area)
-rmk.ITxSEA_match_model <- matchit(rmk.ITxSEA_formula_match, 
-                                   data = rmk.ITxSEA, 
+rmk.SUPAxSPA_match_model <- matchit(rmk.SUPAxSPA_formula_match, 
+                                   data = rmk.SUPAxSPA, 
                                    method = "full", 
                                    distance = "glm",
                                    link = "logit", 
@@ -155,16 +173,17 @@ rmk.ITxSEA_match_model <- matchit(rmk.ITxSEA_formula_match,
                                    estimand = "ATT",
                                    verbose = TRUE,
                                    include.obj = FALSE)
-balance_tab[["ITxSEA"]]
-bal.tab(rmk.ITxSEA_match_model, thresholds = c(m = .25), 
-        v.threshold = 2, un = TRUE) # balanced! removed pop and area
+balance_tab[["SUPAxSPA"]]
+bal.tab(rmk.SUPAxSPA_match_model, thresholds = c(m = .25), 
+        v.threshold = 2, un = TRUE) # balanced (+/-)
+# balanced if we remove PA area, expo_time, and prec
 
-# SPA
+# ITxSPA
 rmk.ITxSPA<-PA_matching_list_step02[[2]] %>% 
-  select(-elevation_mean, -dist_to_urban
+  select(-expo_time, -dist_to_urban
          ) %>% glimpse
 rmk.ITxSPA_formula_match <- update(formula_match, . ~ .
-                                   - elevation_mean
+                                   - expo_time
                                    - dist_to_urban
                                    )
 rmk.ITxSPA_match_model <- matchit(rmk.ITxSPA_formula_match, 
@@ -178,9 +197,10 @@ rmk.ITxSPA_match_model <- matchit(rmk.ITxSPA_formula_match,
                                   include.obj = FALSE)
 balance_tab[["ITxSPA"]]
 bal.tab(rmk.ITxSPA_match_model, thresholds = c(m = .25), 
-        v.threshold = 2, un = TRUE) # balanced! removed elevation and urban distance
+        v.threshold = 2, un = TRUE) # balanced (+)
+# removed expo_time and urban distance
 
-# SUPA
+# ITxSUPA
 rmk.ITxSUPA<-PA_matching_list_step02[[3]] %>% 
   select(-elevation_mean, -prec
   ) %>% glimpse
@@ -199,12 +219,103 @@ rmk.ITxSUPA_match_model <- matchit(rmk.ITxSUPA_formula_match,
                                   include.obj = FALSE)
 balance_tab[["ITxSUPA"]]
 bal.tab(rmk.ITxSUPA_match_model, thresholds = c(m = .25), 
-        v.threshold = 2, un = TRUE) # balanced! removed elevation and precipitation
+        v.threshold = 2, un = TRUE) # balanced! (+)
+#removed elevation and precipitation
+
+# preparing data after match ----
+match_models<-list(
+  rmk.SUPAxSPA_match_model, # PA area, expo_time,and prec
+  rmk.ITxSPA_match_model, # dist, expo_time
+  rmk.ITxSUPA_match_model #elev, prec
+)
+
+# preparing data 
+
+outc_and_remv_PA<-PA_data %>% 
+  select(1, water:dead_less1year, 
+         inc_pcp_by_area, defor_amount, 
+         PA_area, prec, 
+         dist_to_urban, 
+         expo_time, elevation_mean) %>%
+  mutate(new_code=as.factor(new_code), 
+         PA_area=as.numeric(PA_area)) %>% 
+  glimpse
+
+scale<-readRDS("Outputs/UC_socio_data.rds") %>% 
+  st_drop_geometry() %>% 
+  mutate(new_code=paste(new_cat, COD_UC, sep = "_"), 
+         new_code=as.factor(new_code)) %>% 
+  select(new_code, ESFERA) %>%  glimpse
+
+based_match_data<-list()
+df_ifull <- list()
+for (i in seq_along(match_models)) {
+  df_real<-match.data(match_models[[i]]) %>% 
+    as.data.frame()  
+  based_match_data[[i]]<-df_real
+  
+  if(i==1){
+    df_ifull[[1]]<-df_real %>% 
+      left_join(outc_and_remv_PA, 
+                by=c("new_code", 
+                     "dist_to_urban", 
+                     "elevation_mean")) %>% 
+      left_join(scale, by="new_code") %>% 
+      mutate(scale=case_when(
+        is.na(ESFERA) ~ "Federal", 
+        TRUE ~ ESFERA)) %>% 
+      select(-ESFERA) 
+  }
+  if(i==2){
+    df_ifull[[2]]<-df_real %>% 
+      left_join(outc_and_remv_PA, 
+                by=c("new_code", 
+                     "PA_area", "prec", 
+                     "elevation_mean")) %>% 
+      left_join(scale, by="new_code") %>% 
+      mutate(scale=case_when(
+        is.na(ESFERA) ~ "Federal", 
+        TRUE ~ ESFERA)) %>% 
+      select(-ESFERA) 
+  }
+  if(i==3){
+    df_ifull[[3]]<-df_real %>% 
+      left_join(outc_and_remv_PA, 
+                by=c("new_code", 
+                     "PA_area", 
+                     "dist_to_urban", 
+                     "expo_time")) %>% 
+      left_join(scale, by="new_code") %>% 
+      mutate(scale=case_when(
+        is.na(ESFERA) ~ "Federal", 
+        TRUE ~ ESFERA)) %>% 
+      select(-ESFERA) 
+  }
+}
+
+#lapply(based_match_data, dim)
+#lapply(df_ifull, dim)
+
+# saving ----
+saveRDS(list(SUPAxSPA=match_models[[1]],
+        ITxSPA=match_models[[2]],
+        ITxSUPA=match_models[[3]]),
+        "Outputs/Matched_models.rds")
+
+saveRDS(list(SUPAxSPA=df_ifull[[1]],
+        ITxSPA=df_ifull[[2]],
+        ITxSUPA=df_ifull[[3]]),
+        "Outputs/Matched_data.rds")
+
+# pos-matching regression and robustness test ----
 
 
 
 
-# Idea 2 - one match to each biome ----
+
+
+#### Garbage ----
+# Idea 2 - one match to each biome
 
 PA_list<-readRDS("Outputs/PA_balanced.rds") %>% #1134
   filter(!new_cat%in%c("RPPN", "ARIE")) %>% #1087
