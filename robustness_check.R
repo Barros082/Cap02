@@ -5,6 +5,7 @@ library(tidyverse)
 library(lmtest)
 library(sandwich)
 library(rbounds)
+library(spdep)
 
 # linear models and Rousebound sensitive test after matching ----
 
@@ -78,12 +79,52 @@ for (i in seq_along(matched_data)) {
     bounds_psens[[model_id]] <- psens_bounds
   }
 }
-out_glm_summary$SUPAxSPA_water #treat effect
-htcest_glm$SUPAxSPA_water
-cluster_glm$SUPAxSPA_water #treat effect
+out_glm_summary$SUPAxSPA_water #naive
+htcest_glm$SUPAxSPA_water # robust erro
 
+#results
+cluster_glm$SUPAxSPA_water #treat effect (-)
+cluster_glm$SUPAxSPA_sanitation #treat effect (-)
+cluster_glm$SUPAxSPA_waste  #treat effect (-)
+cluster_glm$SUPAxSPA_inc_pcp_by_area
+cluster_glm$SUPAxSPA_defor_amount
+
+cluster_glm$ITxSPA_water 
+cluster_glm$ITxSPA_sanitation #treat effect (-)
+cluster_glm$ITxSPA_waste  #almost treat effect (-)
+cluster_glm$ITxSPA_inc_pcp_by_area #treat effect (-)
+cluster_glm$ITxSPA_defor_amount
+
+cluster_glm$ITxSUPA_water 
+cluster_glm$ITxSUPA_sanitation
+cluster_glm$ITxSUPA_waste  
+cluster_glm$ITxSUPA_inc_pcp_by_area #treat effect (-)
+cluster_glm$ITxSUPA_defor_amount
 
 bounds_psens # Except for children mortality, all the models has 1.
 # 0.3 was the maximum score from children mortality models.
 
+
 # Moran I test (spatial autocorrelation) ----
+
+spt_weights<-list()
+
+for (i in seq_along(matched_data)) {
+  i_df<-matched_data[[i]] %>% 
+    st_as_sf()
+  i_df_names<-names(matched_data)[i]
+  
+  i_df_coords<-i_df %>% 
+    mutate(point = st_centroid(geom),
+           coords = st_coordinates(point))
+  
+  ktest <- knn2nb(knearneigh(i_df_coords$coords))
+  k_test_dists <- unlist(nbdists(ktest, 
+                                 i_df_coords$coords))
+  print(summary(k_test_dists))
+}
+
+# Saving important outputs ----
+
+
+
