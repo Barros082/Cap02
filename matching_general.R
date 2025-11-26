@@ -78,6 +78,60 @@ PA_matching_list_step02<-lapply(PA_matching_list, function(x){
   return(df_x)
 })
 
+# geometry that are inside each other
+test_within_geom<-list()
+for (i in seq_along(PA_matching_list_step02)) {
+  t_df<-PA_matching_list_step02[[i]]
+  
+  list_t_df<-t_df %>% 
+    st_as_sf() %>% 
+    group_by(new_cat) %>% 
+    group_split()
+  
+  test_within_geom[[i]]<-st_intersection(list_t_df[[1]],
+                                list_t_df[[2]],
+                                sparse = FALSE) %>%
+    st_drop_geometry() %>% 
+    select(new_code, PA_name, 
+           new_code.1, PA_name.1)
+  
+  sums_code<-test_within_geom[[i]] %>% 
+    summarise(cod1=n_distinct(new_code), 
+              cod2=n_distinct(new_code.1))
+  print(sums_code)
+  
+  count_bio_cat<-tibble(
+    new_code=c(test_within_geom[[i]]$new_code, 
+               test_within_geom[[i]]$new_code.1)) %>% 
+    as.data.frame() %>% 
+    left_join(t_df %>% 
+                select(new_code, name_biome,
+                       new_cat), 
+              by="new_code") %>%
+    group_by(name_biome, new_cat) %>% 
+    summarise(cod1=n_distinct(new_code))
+  print(count_bio_cat)
+  
+  count_original<-t_df %>% 
+    group_by(name_biome, new_cat) %>% 
+    summarise(cod1=n_distinct(new_code))
+  print(count_original)
+}
+
+PA_matching_list_step02[[1]] %>% 
+  filter(new_code%in%c("UC_00159", "UC_51284",
+                       "UC_11193")) %>% 
+  # this specific situation happens more twice. 
+  # the others - between 2 UC
+  st_as_sf() %>% 
+  ggplot()+
+  geom_sf(aes(fill=new_code), alpha=0.3)
+
+# Just IT are inside PI ans US. We don't have IT inside itself. 
+test_within_geom[[2]] %>%  View()
+test_within_geom[[3]] %>%  View()
+
+
 matching_results <- list()
 balance_summary <- list()
 balance_tab <- list()
