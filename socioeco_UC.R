@@ -83,13 +83,16 @@ wasteUC<-read_xlsx("DATA/waste_UC2022.xlsx")[-1:-4, c(-1, -4)] %>%
   glimpse
 
 # Health - infantile mortality
-healthUC<-read_xlsx("DATA/inf_mort_UC2022.xlsx") [-1:-6, -1] %>%
+healthUC<-read_xlsx("DATA/inf_mort_UC2022_2.xlsx") [-1:-6, -1] %>%
   rename(COD_UC=`...2`, 
-         Name_UF=`...3`, 
-         dead_less1year=`...4`) %>% 
+         Name_UF=`...3`,
+         dead_less4year=`...4`, 
+         dead_less1year=`...5`, 
+         dum_dead5_9year=`...6`) %>% 
   filter(!is.na(COD_UC)) %>%
   mutate(
-    dead_less1year=if_else(dead_less1year=="-", "0", dead_less1year),
+    across(.cols = c(3:5), 
+           .fns = ~ if_else(.x == "-", "0", .x)),
     COD_UC = str_pad(COD_UC, width = 5, 
                      side = "left",
                      pad = "0"),
@@ -106,17 +109,17 @@ socioeco_UC_join<-popUC %>%
 
 ## Merging with IBGE UC data
 UC_socio<-readRDS("Outputs/PA_clean_by_year.rds") %>% 
-  st_as_sf() %>%
+  sf::st_as_sf() %>%
   left_join(socioeco_UC_join, by=c(
     "COD_UC"="COD_UC"
   )) %>% #dim()#2248
   #DataExplorer::plot_missing() # any NA value
   filter(!Pop==0) %>% #dim()#2248-1166=1082 
-  select(1:15, water, lit, sanitation:dead_less1year) %>% 
+  select(1:15, water, lit, sanitation:dum_dead5_9year) %>% 
   rowwise() %>%
   mutate(
-    X_count = sum(c_across(lit:dead_less1year) == "X"),
-    other_count = sum(c_across(lit:dead_less1year) == "..")) %>%
+    X_count = sum(c_across(lit:dum_dead5_9year) == "X"),
+    other_count = sum(c_across(lit:dum_dead5_9year) == "..")) %>%
   ungroup() %>%
   filter(!X_count>0 & !other_count>0) %>% #dim() #-295=787
   #sf::st_drop_geometry() %>% 
@@ -126,7 +129,15 @@ UC_socio<-readRDS("Outputs/PA_clean_by_year.rds") %>%
   #print(n=100)
   select(-X_count, -other_count) %>%
   mutate(
-    across(.cols=c(lit:dead_less1year), .fns=as.numeric)) %>% 
+    across(.cols=c(lit:dum_dead5_9year), .fns=as.numeric), 
+    dead_less10years=dead_less4year+dum_dead5_9year) %>% 
+  select(-dum_dead5_9year) %>%
+  # how many 0 we have to health variables? A tons of. 
+  #sf::st_drop_geometry() %>% 
+  #filter(!new_cat%in%c("APA", "ARIE", "RPPN")) %>% #dim() #397
+  #summarise(
+  #  across(.cols = contains("dead_less"), 
+  #         .fns = ~sum(.x == 0, na.rm = TRUE)))
   glimpse
 
 saveRDS(UC_socio, "Outputs/UC_socio_data.rds")
