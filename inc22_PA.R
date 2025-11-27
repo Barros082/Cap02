@@ -19,7 +19,8 @@ inc22_br<-censobr::read_tracts(dataset = "ResponsavelRenda",
   left_join(geobr::read_census_tract(code_tract = "all", 
                                      year = 2022,
                                      simplified = F) %>% 
-              dplyr::select(code_tract, code_muni, code_state, geom) %>% 
+              dplyr::select(code_tract, code_muni, 
+                            code_state, geom) %>% 
               mutate(across(.cols = c(1:3), .fns=as.factor)), 
             by=c("code_tract", "code_muni", "code_state")) %>% 
   st_as_sf() %>% 
@@ -38,7 +39,7 @@ full_data<-inc22CT_PA_intersc %>%
   st_drop_geometry() %>% 
   group_by(new_code) %>% 
   summarise(
-    across(.cols = c(1:21), .fns=first), 
+    across(.cols = c(1:23), .fns=first), 
     inc_pcp_by_area=sum(inc_pcp2022 * area_intersec, na.rm = TRUE) / 
       sum(area_intersec, na.rm = TRUE),
     ) %>% 
