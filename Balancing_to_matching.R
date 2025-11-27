@@ -7,6 +7,16 @@ sf_use_s2(F)
 
 # Join
 PA_full <-read_sf("Outputs/PA_IT_shape.gpkg") %>% 
+  left_join(readRDS("Outputs/UC_socio_data.rds") %>%
+              st_drop_geometry() %>% 
+              select(COD_UC, ESFERA) %>% 
+              mutate(COD_UC=as.character(COD_UC)),
+            by="COD_UC") %>% 
+  mutate(PA_scale=case_when(
+    new_cat == "IT" ~ "Federal", 
+    TRUE ~ ESFERA
+  )) %>% 
+  select(-ESFERA) %>% 
   left_join(read_sf("Outputs/PA_climatic.gpkg") %>%
               st_drop_geometry() %>% 
               select(new_code, prec:tmax),
@@ -142,8 +152,22 @@ PA_done<-st_intersection(PA_finished, biomas) %>%
     centroid=st_centroid(geom),
     lat=st_coordinates(centroid)[,2],
     long=st_coordinates(centroid)[,1], 
-  ) %>% 
-  glimpse #1122
+  ) %>% #1122
+  # removing PA from states and municipals. 
+  #st_drop_geometry() %>% 
+  #filter(!new_cat%in%c("APA", "ARIE", "RPPN")) %>% 
+  #group_by(name_biome, new_cat, PA_scale) %>% 
+  #summarise(sum_PA=n_distinct(new_code)) %>%  print(n=30)
+  filter(PA_scale=="Federal") %>% 
+  # Estimating the final PA amount. 
+  #st_drop_geometry() %>% 
+  #filter(!new_cat%in%c("APA", "ARIE", "RPPN")) %>% 
+  #filter(!name_biome%in%c("Pampa", "Pantanal")) %>%
+  #group_by(name_biome, new_cat) %>% 
+  #summarise(sum_PA=n_distinct(new_code)) %>% print(n=60)
+  glimpse 
+
+
 
 saveRDS(PA_done, "Outputs/PA_balanced.rds")
 
@@ -151,9 +175,9 @@ saveRDS(PA_done, "Outputs/PA_balanced.rds")
 # understand how many PA we have----
 
 # are there PA the was in more than 1 state?
-#PA_state<-readRDS("Outputs/PA_balanced.rds") %>% #1122
-#  filter(!new_cat%in%c("RPPN", "ARIE")) %>% #1075
-#  filter(!name_biome%in%c("Pampa", "Pantanal")) %>% #1061
+#PA_state<-readRDS("Outputs/PA_balanced.rds") %>% #591
+#  filter(!new_cat%in%c("APA", "RPPN", "ARIE")) %>% #557
+#  filter(!name_biome%in%c("Pampa", "Pantanal")) %>% #550
 #  st_intersection(., 
 #                  geobr::read_state() %>%  
 #                    select(1:2, geom) %>% 
