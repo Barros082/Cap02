@@ -71,13 +71,16 @@ wasteIT<-read_xlsx("DATA/waste_IT2022.xlsx")[-1:-4, c(-1, -4:-7)] %>%
 
 
 # Health - infantile mortality
-healthIT<-read_xlsx("DATA/inf_mort_IT2022.xlsx") [-1:-6, c(-1, -5)] %>%
+healthIT<-read_xlsx("DATA/inf_mort_IT2022_2.xlsx") [-1:-6, c(-1)] %>%
   rename(COD_IT=`...2`, 
          Name_IT=`...3`, 
-         dead_less1year=`...4`) %>%
-  filter(!is.na(COD_IT)) %>%
+         dead_less4year=`...4`, 
+         dead_less1year=`...5`, 
+         dum_dead5_9year=`...6`) %>%
+  filter(!is.na(COD_IT)) %>% 
   mutate(
-    dead_less1year=if_else(dead_less1year=="-", "0", dead_less1year),
+    across(.cols = c(3:5), 
+           .fns = ~ if_else(.x == "-", "0", .x)),
     COD_IT=as.factor(COD_IT)) %>%
   glimpse
 
@@ -90,11 +93,11 @@ socioeco_IT_join<-popIT %>%
   left_join(healthIT) %>%  glimpse
 
 ## Merging with FUNAI IT data
-read_sf("Outputs/IT_shape.gpkg") %>% 
+sf::read_sf("Outputs/IT_shape.gpkg") %>% 
   left_join(socioeco_IT_join, by=c(
     "terrai_nom"="Name_IT"
-  )) %>% #506
-  #st_drop_geometry %>% count(terrai_nom) %>% filter(n > 1) # there is some duplicated names
+  )) %>% #dim()#506
+  #sf::st_drop_geometry() %>% count(terrai_nom) %>% filter(n > 1) # there is some duplicated names
   #DataExplorer::plot_missing() # Na in data is ok, but NA is outcomes is unaceptable. 
   filter(is.na(dead_less1year)) %>%  View() #13 NA
 
@@ -114,7 +117,7 @@ read_sf("Outputs/IT_shape.gpkg") %>%
 #socio -> NA  | funai -> Tekoá Guavirá
 
 # from 13 NA, 6 we can fix and need to exclude. 
-IT_socio<-read_sf("Outputs/IT_shape.gpkg") %>% 
+IT_socio<-sf::read_sf("Outputs/IT_shape.gpkg") %>% 
   mutate(
    terrai_nom = case_when(
      terrai_nom == "Guarani de Bracui" ~ "Guarani de Bracuí",
@@ -129,7 +132,7 @@ IT_socio<-read_sf("Outputs/IT_shape.gpkg") %>%
     "terrai_nom"="Name_IT"
   )) %>% 
   filter(!is.na(dead_less1year)) %>% #500
-  #DataExplorer::plot_missing()
+  #DataExplorer::plot_missing() # no NA
   filter(!Pop==0) %>% #dim() #491 # there is 9 IT with 0 population. I don't know how, but we need to exclude it because we cannot estimate socio outcomes with 0 population
   rowwise() %>%
   mutate(
@@ -139,8 +142,15 @@ IT_socio<-read_sf("Outputs/IT_shape.gpkg") %>%
   filter(!X_count>0 & !other_count>0) %>% #dim() #465
   select(-X_count, -other_count) %>% 
   mutate(
-    across(.cols=c(lit:dead_less1year), .fns=as.numeric)) %>% 
+    across(.cols=c(lit:dum_dead5_9year), .fns=as.numeric), 
+    dead_less10years=dead_less4year+dum_dead5_9year) %>% 
+  select(-dum_dead5_9year) %>% 
+  # how many 0 we have to health variables? A tons of. 
+  #sf::st_drop_geometry() %>% 
+  #summarise(
+  #  across(.cols = contains("dead_less"), 
+  #         .fns = ~sum(.x == 0, na.rm = TRUE)))
   glimpse()
 
-IT_socio %>%  st_crs()
-write_sf(IT_socio, "Outputs/IT_socio_data.gpkg")
+IT_socio %>%  sf::st_crs() #4674
+sf::write_sf(IT_socio, "Outputs/IT_socio_data.gpkg")
