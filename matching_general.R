@@ -6,34 +6,41 @@ library(MatchIt)
 library(cobalt)
 library(corrplot)
 
-# Idea 1 - one match to all using the biome as exact ----
-PA_data<-readRDS("Outputs/PA_balanced_with_incpcp.rds") %>% #1122
-  filter(!new_cat%in%c("RPPN", "ARIE", "APA")) %>% #769
-  filter(!name_biome%in%c("Pampa", "Pantanal")) %>%  #758
+# preparing data before matching ----
+PA_data<-readRDS("Outputs/PA_balanced_with_incpcp.rds") %>% #591
+  filter(!new_cat%in%c("RPPN", "ARIE", "APA")) %>%  #557
+  filter(!name_biome%in%c("Pampa", "Pantanal")) %>% #550
+  select(-code_tract, -lit) %>% 
   glimpse
 
 # correlation
 corr_data<-PA_data %>% 
   sf::st_drop_geometry() %>% 
   select(-1:-3, 
-         -yr_creation, 
-         -name_biome:-centroid, 
-         -water:-dead_less1year, 
-         -defor_amount, 
+         -yr_creation, -PA_scale,
+         -name_biome:-centroid,
+         #-water:-dead_less4year,
+         #-defor_amount,
+         #-tmin, -tmax,
          -geom) %>%  glimpse
 
 corr_matrix <- cor(corr_data)
 
 corrplot(corr_matrix, method = "circle", 
          tl.col = "black", tl.srt = 45, addCoef.col = "black")
-#considering 0.7 as trehshold, we will remove:
-# tmin, tmax, water:dead_less1year
+#correlation vars:
+# tmin~tmax
+# pop~water e pop~dead
+# sanitation~waste
+
+#considering 0.7 as threshold, we will remove only the covariates:
+# tmin and tmax
 
 PA_matching_step01 <- PA_data %>%
   st_drop_geometry() %>% 
   select(-tmin, -tmax, # correlated
          -yr_creation, -centroid, #dummies
-         -water:-dead_less1year, #outputs 
+         -water:-dead_less4year, #outputs 
          -inc_pcp_by_area, #outputs
          -defor_amount) %>% 
   group_by(new_cat) %>% 
@@ -78,6 +85,7 @@ PA_matching_list_step02<-lapply(PA_matching_list, function(x){
   return(df_x)
 })
 
+# testing PA overlap ----
 # geometry that are inside each other
 test_within_geom<-list()
 for (i in seq_along(PA_matching_list_step02)) {
@@ -92,8 +100,8 @@ for (i in seq_along(PA_matching_list_step02)) {
                                 list_t_df[[2]],
                                 sparse = FALSE) %>%
     st_drop_geometry() %>% 
-    select(new_code, PA_name, 
-           new_code.1, PA_name.1)
+    select(new_code, PA_name, expo_time, new_cat,
+           new_code.1, PA_name.1, expo_time.1, new_cat.1)
   
   sums_code<-test_within_geom[[i]] %>% 
     summarise(cod1=n_distinct(new_code), 
@@ -118,20 +126,51 @@ for (i in seq_along(PA_matching_list_step02)) {
   print(count_original)
 }
 
-PA_matching_list_step02[[1]] %>% 
-  filter(new_code%in%c("UC_00159", "UC_51284",
-                       "UC_11193")) %>% 
-  # this specific situation happens more twice. 
-  # the others - between 2 UC
-  st_as_sf() %>% 
-  ggplot()+
-  geom_sf(aes(fill=new_code), alpha=0.3)
+#plotting each graphic
 
-# Just IT are inside PI ans US. We don't have IT inside itself. 
-test_within_geom[[2]] %>%  View()
-test_within_geom[[3]] %>%  View()
+graphics_overlap <- list()
+for(i in 1:length(test_within_geom)) {
+  all_combinations <- test_within_geom[[i]] %>%
+    select(new_code, new_code.1)
+  
+  for(j in 1:nrow(all_combinations)) {
+    code1 <- as.character(all_combinations$new_code[j])
+    code2 <- as.character(all_combinations$new_code.1[j])
+    unique_key <- paste0("L", i, "_R", j)
+    
+    spatial_data <- PA_matching_list_step02[[i]] %>%
+      filter(new_code %in% c(code1, code2)) %>%
+      st_as_sf()
+    
+    if(nrow(spatial_data) >= 1) {
+      point_data <- spatial_data %>%
+        st_drop_geometry() %>%
+        st_as_sf(coords = c("long", "lat"),
+                 crs = st_crs(spatial_data))
+      
+      p <- ggplot() +
+        geom_sf(data = spatial_data, 
+                aes(fill = new_code), alpha = 0.3) +
+        geom_sf(data = point_data, 
+                color = "red", size = 3, shape = 16) +
+        labs(title = paste("Overlap:", code1, "&", code2),
+             subtitle = paste("List", i, "- Row", j),
+             fill = "Protected Area") +
+        scale_fill_viridis_d() +
+        theme_minimal() +
+        theme(legend.position = "bottom")
+      
+      graphics_overlap[[unique_key]] <- p
+    }
+  }
+}
+#lapply(graphics_overlap, names)
 
 
+
+
+
+#### Matching ----
 matching_results <- list()
 balance_summary <- list()
 balance_tab <- list()
