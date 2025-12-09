@@ -26,7 +26,9 @@
 
 12) `inc22_PA.R` -> The idea here is include income per capita to use as an outcome. We use PA_balanced and generates PA_balanced_with_incpcp.rds.
 
-13) `matching_general.R`
+13) `before_match.R` --> A script to remove colinearity between match variable and mainly, to remove UCs that are over each other from each treatment comparisons. It uses PA_balanced_with_incpcp.rds and generates Data_to_match.rds
+
+14) `matching_general.R`
 
 ### To exclude Script:
 
