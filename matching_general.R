@@ -4,193 +4,53 @@ library(tidyverse)
 library(sf)
 library(MatchIt)
 library(cobalt)
-library(corrplot)
 
-# preparing data before matching ----
-PA_data<-readRDS("Outputs/PA_balanced_with_incpcp.rds") %>% #591
-  filter(!new_cat%in%c("RPPN", "ARIE", "APA")) %>%  #557
-  filter(!name_biome%in%c("Pampa", "Pantanal")) %>% #550
-  select(-code_tract, -lit) %>% 
-  glimpse
+PA_matching_list<-readRDS("Outputs/data_to_match.rds")
 
-# correlation
-corr_data<-PA_data %>% 
-  sf::st_drop_geometry() %>% 
-  select(-1:-3, 
-         -yr_creation, -PA_scale,
-         -name_biome:-centroid,
-         #-water:-dead_less4year,
-         #-defor_amount,
-         #-tmin, -tmax,
-         -geom) %>%  glimpse
-
-corr_matrix <- cor(corr_data)
-
-corrplot(corr_matrix, method = "circle", 
-         tl.col = "black", tl.srt = 45, addCoef.col = "black")
-#correlation vars:
-# tmin~tmax
-# pop~water e pop~dead
-# sanitation~waste
-
-#considering 0.7 as threshold, we will remove only the covariates:
-# tmin and tmax
-
-PA_matching_step01 <- PA_data %>%
-  st_drop_geometry() %>% 
-  select(-tmin, -tmax, # correlated
-         -yr_creation, -centroid, #dummies
-         -water:-dead_less4year, #outputs 
-         -inc_pcp_by_area, #outputs
-         -defor_amount) %>% 
-  group_by(new_cat) %>% 
-  group_split()
-
-SUPAxSPA<-full_join(PA_matching_step01[[3]],
-                  PA_matching_step01[[2]]) %>% 
-  mutate(Treat=case_when(
-    new_cat=="US"~1,
-    TRUE ~0)) %>% 
-  glimpse
-ITxSPA<-full_join(PA_matching_step01[[1]], 
-                  PA_matching_step01[[2]]) %>% 
-  mutate(Treat=case_when(
-    new_cat=="IT"~1,
-    TRUE ~0))%>% 
-  glimpse
-ITxSUPA<-full_join(PA_matching_step01[[1]], 
-                   PA_matching_step01[[3]]) %>% 
-  mutate(Treat=case_when(
-    new_cat=="IT"~1,
-    TRUE ~0))%>% 
-  glimpse
-
-PA_matching_list<-list(SUPAxSPA, ITxSPA, ITxSUPA)
-PA_matching_names<-c("SUPAxSPA", "ITxSPA", "ITxSUPA")
-
-PA_matching_list_step02<-lapply(PA_matching_list, function(x){
-  df_x<-x %>% 
-    select(new_code:new_cat, name_biome, Treat,
-           everything(.)) %>% 
-    mutate(
-      across(.cols = c(new_code, new_cat, 
-                       name_biome), .fns=as.factor), 
-      PA_area=as.numeric(PA_area)
-    ) %>% 
-    glimpse
-  
-  print(df_x %>%dim())
-  print(df_x %>% distinct(new_code) %>%  dim())
-  
-  return(df_x)
-})
-
-# testing PA overlap ----
-# geometry that are inside each other
-test_within_geom<-list()
-for (i in seq_along(PA_matching_list_step02)) {
-  t_df<-PA_matching_list_step02[[i]]
-  
-  list_t_df<-t_df %>% 
-    st_as_sf() %>% 
-    group_by(new_cat) %>% 
-    group_split()
-  
-  test_within_geom[[i]]<-st_intersection(list_t_df[[1]],
-                                list_t_df[[2]],
-                                sparse = FALSE) %>%
-    st_drop_geometry() %>% 
-    select(new_code, PA_name, expo_time, new_cat,
-           new_code.1, PA_name.1, expo_time.1, new_cat.1)
-  
-  sums_code<-test_within_geom[[i]] %>% 
-    summarise(cod1=n_distinct(new_code), 
-              cod2=n_distinct(new_code.1))
-  print(sums_code)
-  
-  count_bio_cat<-tibble(
-    new_code=c(test_within_geom[[i]]$new_code, 
-               test_within_geom[[i]]$new_code.1)) %>% 
-    as.data.frame() %>% 
-    left_join(t_df %>% 
-                select(new_code, name_biome,
-                       new_cat), 
-              by="new_code") %>%
-    group_by(name_biome, new_cat) %>% 
-    summarise(cod1=n_distinct(new_code))
-  print(count_bio_cat)
-  
-  count_original<-t_df %>% 
-    group_by(name_biome, new_cat) %>% 
-    summarise(cod1=n_distinct(new_code))
-  print(count_original)
-}
-
-#plotting each graphic
-
-graphics_overlap <- list()
-for(i in 1:length(test_within_geom)) {
-  all_combinations <- test_within_geom[[i]] %>%
-    select(new_code, new_code.1)
-  
-  for(j in 1:nrow(all_combinations)) {
-    code1 <- as.character(all_combinations$new_code[j])
-    code2 <- as.character(all_combinations$new_code.1[j])
-    unique_key <- paste0("L", i, "_R", j)
-    
-    spatial_data <- PA_matching_list_step02[[i]] %>%
-      filter(new_code %in% c(code1, code2)) %>%
-      st_as_sf()
-    
-    if(nrow(spatial_data) >= 1) {
-      point_data <- spatial_data %>%
-        st_drop_geometry() %>%
-        st_as_sf(coords = c("long", "lat"),
-                 crs = st_crs(spatial_data))
-      
-      p <- ggplot() +
-        geom_sf(data = spatial_data, 
-                aes(fill = new_code), alpha = 0.3) +
-        geom_sf(data = point_data, 
-                color = "red", size = 3, shape = 16) +
-        labs(title = paste("Overlap:", code1, "&", code2),
-             subtitle = paste("List", i, "- Row", j),
-             fill = "Protected Area") +
-        scale_fill_viridis_d() +
-        theme_minimal() +
-        theme(legend.position = "bottom")
-      
-      graphics_overlap[[unique_key]] <- p
-    }
-  }
-}
-#lapply(graphics_overlap, names)
-
-
-
-
-
-#### Matching ----
-matching_results <- list()
+matching_results_FM <- list()
+matching_results_GEN <- list()
+balance_tab_FM <- list()
+balance_tab_GEN <- list()
 balance_summary <- list()
-balance_tab <- list()
 love_plots <- list()
 love_plots2 <- list()
+kvalue<-c(1, 5, 10)
 
-for (i in seq_along(PA_matching_list_step02)) {
+for (i in seq_along(PA_matching_list)) {
   
-  df <- PA_matching_list_step02[[i]]
-  df_name <- PA_matching_names[i]
+  df <- PA_matching_list[[i]]
+  df_name <- names(PA_matching_list)[i]
   
-  names_cofc <- df %>% dplyr::select(6:13) %>% colnames()
+  names_cofc <- df %>% dplyr::select(6:14, -PA_scale) %>% colnames()
   names_cofc_vector <- unlist(strsplit(paste(names_cofc,
                                   collapse = " + "), " \\+ "))
   formula_match <- as.formula(paste("Treat ~",
                                         paste(names_cofc_vector, 
                                               collapse = " + ")))
+  # Genetic matching with K=c(1, 5, 10)
+  for (k in kvalue) {
+    set.seed(12345)
+    gen_model <- matchit(formula_match,
+      data = df,
+      method = "genetic",
+      ratio = k, 
+      distance = "glm",
+      link = "logit", 
+      exact = ~ name_biome,
+      estimand = "ATT",
+      pop.size = 500,
+      verbose = FALSE,
+      include.obj = FALSE
+    )
+    matching_results_GEN[[paste0(df_name, "ratio_", k)]] <- gen_model
+    
+    b_tab_gen<-bal.tab(gen_model, thresholds = c(m = .25), 
+                   v.threshold = 2, un = TRUE)
+    balance_tab_GEN[[paste0(df_name, "ratio_", k)]] <- b_tab_gen
+    }
   
   # Full Matching with GLM PS 
-  match_model <- matchit(formula_match, 
+  match_model_fm <- matchit(formula_match, 
                              data = df, 
                              method = "full", 
                              distance = "glm",
@@ -200,18 +60,18 @@ for (i in seq_along(PA_matching_list_step02)) {
                              verbose = TRUE,
                              include.obj = FALSE)
   
-  matching_results[[df_name]] <- match_model
+  matching_results_FM[[df_name]] <- match_model_fm
   
   # Balance
-  balance_summ <- summary(match_model, standardize = TRUE)
+  balance_summ <- summary(match_model_fm, standardize = TRUE)
   balance_summary[[df_name]] <- balance_summ
   
-  b_tab<-bal.tab(match_model, thresholds = c(m = .25), 
+  b_tab_fm<-bal.tab(match_model_fm, thresholds = c(m = .25), 
                      v.threshold = 2, un = TRUE)
-  balance_tab[[df_name]] <- b_tab
+  balance_tab_FM[[df_name]] <- b_tab_fm
   
   # LovePlot - mean
-  p_love <- love.plot(match_model,
+  p_love <- love.plot(match_model_fm,
                           estimand = "ATT",
                           stat = "mean.diffs", 
                           thresholds = c(m = 0.1),
@@ -226,7 +86,7 @@ for (i in seq_along(PA_matching_list_step02)) {
   print(p_love) 
   
   # LovePlot - variance
-  p_love2 <- love.plot(match_model,
+  p_love2 <- love.plot(match_model_fm,
                            stat =  "variance.ratios", 
                            thresholds = c(v = 2),
                            shapes = c("circle filled", "circle filled"),
@@ -236,27 +96,32 @@ for (i in seq_along(PA_matching_list_step02)) {
   love_plots2[[df_name]] <- p_love2
   print(p_love2) 
 }
-
-love_plots
-love_plots2
-balance_tab
-matching_results
-#supa x spa
-# prec e expo_time
+# results 
+# FM _______________
+#supa x spa 
+# pop, expo time, long
 #it x spa
-# expo_time e dist_to_urban(0.2503)
+# elevation, expo time, long, lat
 #it x supa
-# elev e precp
-
+# prec, elevation
+# GEN ______________
+## using pop.size=100 --> All were really bad than FM
+## using pop.size=500 --> All were really bad than FM
+# SUPA x SUP -> 10 and 5 were better than 1, and really similar. But fM was better 
+# ITxSPA and ITxSUPA -> 1 was better than 5/10. But FM was just better than it. 
 
 # balancing vars ----
 # SUPAxSPA
-rmk.SUPAxSPA<-PA_matching_list_step02[[1]] %>% 
-  select(-prec, -expo_time, -PA_area) %>% glimpse
+rmk.SUPAxSPA<-PA_matching_list[[1]] %>% 
+  select(-Pop, -expo_time, -long, 
+         - prec, -PA_area) %>% glimpse
 rmk.SUPAxSPA_formula_match <- update(formula_match, . ~ .
-                                    - prec
+                                    - Pop
                                     - expo_time
-                                    - PA_area)
+                                    - long
+                                    - prec
+                                    - PA_area
+                                    )
 rmk.SUPAxSPA_match_model <- matchit(rmk.SUPAxSPA_formula_match, 
                                    data = rmk.SUPAxSPA, 
                                    method = "full", 
@@ -268,16 +133,17 @@ rmk.SUPAxSPA_match_model <- matchit(rmk.SUPAxSPA_formula_match,
                                    include.obj = FALSE)
 balance_tab[["SUPAxSPA"]]
 bal.tab(rmk.SUPAxSPA_match_model, thresholds = c(m = .25), 
-        v.threshold = 2, un = TRUE) # balanced (+/-)
-# balanced if we remove PA area, expo_time, and prec
+        v.threshold = 2, un = TRUE) # non balanced
+# if we remove the three unbalanced, appear more 2 (PA_area, precp)
+# if we remove all these five, distance will be unbalanced
 
 # ITxSPA
-rmk.ITxSPA<-PA_matching_list_step02[[2]] %>% 
-  select(-expo_time, -dist_to_urban
+rmk.ITxSPA<-PA_matching_list[[2]] %>% 
+  select(-expo_time, -elevation_mean 
          ) %>% glimpse
 rmk.ITxSPA_formula_match <- update(formula_match, . ~ .
                                    - expo_time
-                                   - dist_to_urban
+                                   - elevation_mean 
                                    )
 rmk.ITxSPA_match_model <- matchit(rmk.ITxSPA_formula_match, 
                                   data = rmk.ITxSPA, 
@@ -290,11 +156,11 @@ rmk.ITxSPA_match_model <- matchit(rmk.ITxSPA_formula_match,
                                   include.obj = FALSE)
 balance_tab[["ITxSPA"]]
 bal.tab(rmk.ITxSPA_match_model, thresholds = c(m = .25), 
-        v.threshold = 2, un = TRUE) # balanced (+)
-# removed expo_time and urban distance
+        v.threshold = 2, un = TRUE) # balanced
+# removed expo_time and elevation_mean 
 
 # ITxSUPA
-rmk.ITxSUPA<-PA_matching_list_step02[[3]] %>% 
+rmk.ITxSUPA<-PA_matching_list[[3]] %>% 
   select(-elevation_mean, -prec
   ) %>% glimpse
 rmk.ITxSUPA_formula_match <- update(formula_match, . ~ .
@@ -312,7 +178,7 @@ rmk.ITxSUPA_match_model <- matchit(rmk.ITxSUPA_formula_match,
                                   include.obj = FALSE)
 balance_tab[["ITxSUPA"]]
 bal.tab(rmk.ITxSUPA_match_model, thresholds = c(m = .25), 
-        v.threshold = 2, un = TRUE) # balanced! (+)
+        v.threshold = 2, un = TRUE) # balanced
 #removed elevation and precipitation
 
 # preparing data after match ----
