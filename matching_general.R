@@ -114,13 +114,14 @@ for (i in seq_along(PA_matching_list)) {
 # SUPAxSPA
 rmk.SUPAxSPA<-PA_matching_list[[1]] %>% 
   select(-Pop, -expo_time, -long, 
-         - prec, -PA_area) %>% glimpse
+         #- prec, -PA_area
+         ) %>% glimpse
 rmk.SUPAxSPA_formula_match <- update(formula_match, . ~ .
                                     - Pop
                                     - expo_time
                                     - long
-                                    - prec
-                                    - PA_area
+                                    #- prec
+                                    #- PA_area
                                     )
 rmk.SUPAxSPA_match_model <- matchit(rmk.SUPAxSPA_formula_match, 
                                    data = rmk.SUPAxSPA, 
@@ -131,7 +132,7 @@ rmk.SUPAxSPA_match_model <- matchit(rmk.SUPAxSPA_formula_match,
                                    estimand = "ATT",
                                    verbose = TRUE,
                                    include.obj = FALSE)
-balance_tab[["SUPAxSPA"]]
+balance_tab_FM[["SUPAxSPA"]]
 bal.tab(rmk.SUPAxSPA_match_model, thresholds = c(m = .25), 
         v.threshold = 2, un = TRUE) # non balanced
 # if we remove the three unbalanced, appear more 2 (PA_area, precp)
@@ -154,7 +155,7 @@ rmk.ITxSPA_match_model <- matchit(rmk.ITxSPA_formula_match,
                                   estimand = "ATT",
                                   verbose = TRUE,
                                   include.obj = FALSE)
-balance_tab[["ITxSPA"]]
+balance_tab_FM[["ITxSPA"]]
 bal.tab(rmk.ITxSPA_match_model, thresholds = c(m = .25), 
         v.threshold = 2, un = TRUE) # balanced
 # removed expo_time and elevation_mean 
@@ -176,35 +177,32 @@ rmk.ITxSUPA_match_model <- matchit(rmk.ITxSUPA_formula_match,
                                   estimand = "ATT",
                                   verbose = TRUE,
                                   include.obj = FALSE)
-balance_tab[["ITxSUPA"]]
+balance_tab_FM[["ITxSUPA"]]
 bal.tab(rmk.ITxSUPA_match_model, thresholds = c(m = .25), 
         v.threshold = 2, un = TRUE) # balanced
 #removed elevation and precipitation
 
 # preparing data after match ----
 match_models<-list(
-  rmk.SUPAxSPA_match_model, # PA area, expo_time,and prec
-  rmk.ITxSPA_match_model, # dist, expo_time
-  rmk.ITxSUPA_match_model #elev, prec
+  matching_results_FM[["SUPAxSPA"]], # non-balanced, full
+  rmk.ITxSPA_match_model, # balanced, -expo_time and -elevation
+  rmk.ITxSUPA_match_model # balanced, -elevation and -precipitation
 )
 
 # preparing data 
-
-outc_and_remv_PA<-PA_data %>% 
-  select(1, water:dead_less1year, 
-         inc_pcp_by_area, defor_amount, 
-         PA_area, prec, 
-         dist_to_urban, 
-         expo_time, elevation_mean) %>%
-  mutate(new_code=as.factor(new_code), 
-         PA_area=as.numeric(PA_area)) %>% 
+PA_data<-readRDS("Outputs/PA_balanced_with_incpcp.rds") %>% #591
+  filter(!new_cat%in%c("RPPN", "ARIE", "APA")) %>%
+  filter(!name_biome%in%c("Pampa", "Pantanal")) %>% 
+  select(-code_tract, -lit) %>% 
   glimpse
 
-scale<-readRDS("Outputs/UC_socio_data.rds") %>% 
-  st_drop_geometry() %>% 
-  mutate(new_code=paste(new_cat, COD_UC, sep = "_"), 
-         new_code=as.factor(new_code)) %>% 
-  select(new_code, ESFERA) %>%  glimpse
+outc_and_remv_PA<-PA_data %>% 
+  select(1, water:dead_less4year, 
+         inc_pcp_by_area, defor_amount, 
+         prec, expo_time, elevation_mean #covariates that we remove to match
+         ) %>%
+  mutate(new_code=as.factor(new_code)) %>% 
+  glimpse
 
 based_match_data<-list()
 df_ifull <- list()
@@ -217,43 +215,83 @@ for (i in seq_along(match_models)) {
     df_ifull[[1]]<-df_real %>% 
       left_join(outc_and_remv_PA, 
                 by=c("new_code", 
-                     "dist_to_urban", 
-                     "elevation_mean")) %>% 
-      left_join(scale, by="new_code") %>% 
-      mutate(scale=case_when(
-        is.na(ESFERA) ~ "Federal", 
-        TRUE ~ ESFERA)) %>% 
-      select(-ESFERA) 
+                     "prec", 
+                     "elevation_mean", 
+                     "expo_time")) %>% 
+      select(new_code:long, 
+             prec, expo_time, elevation_mean,
+             geom:subclass, everything(.))
   }
   if(i==2){
     df_ifull[[2]]<-df_real %>% 
       left_join(outc_and_remv_PA, 
                 by=c("new_code", 
-                     "PA_area", "prec", 
-                     "elevation_mean")) %>% 
-      left_join(scale, by="new_code") %>% 
-      mutate(scale=case_when(
-        is.na(ESFERA) ~ "Federal", 
-        TRUE ~ ESFERA)) %>% 
-      select(-ESFERA) 
+                     "prec")) %>% 
+      select(new_code:long, 
+             prec, expo_time, elevation_mean,
+             geom:subclass, everything(.))
   }
   if(i==3){
     df_ifull[[3]]<-df_real %>% 
       left_join(outc_and_remv_PA, 
                 by=c("new_code", 
-                     "PA_area", 
-                     "dist_to_urban", 
                      "expo_time")) %>% 
-      left_join(scale, by="new_code") %>% 
-      mutate(scale=case_when(
-        is.na(ESFERA) ~ "Federal", 
-        TRUE ~ ESFERA)) %>% 
-      select(-ESFERA) 
+      select(new_code:long, 
+             prec, expo_time, elevation_mean,
+             geom:subclass, everything(.))
   }
 }
 
-#lapply(based_match_data, dim)
-#lapply(df_ifull, dim)
+lapply(based_match_data, dim)
+lapply(df_ifull, dim)
+
+# loveplots FMxGEN ---- 
+lvplot_SUPAxSPA<-love.plot(formula_match,
+          data = df_ifull[[1]], estimand = "ATT",
+          weights = list(w1 = get.w(match_models[[1]]),
+                         w2 = get.w(matching_results_GEN[["SUPAxSPAratio_1"]])),
+          thresholds = c(m = .1),
+          shapes = c("circle filled", "circle", "circle"),
+          colors = c("black", "blue", "darkgreen"),
+          sample.names = c("full matching",
+                           "genetic matching (K=1)")
+) + 
+  geom_vline(xintercept = c(-0.25, -0.5, 0.25, 0.5), 
+             linetype = "dashed",
+             color = c("green", "orange", "green", "orange"))+
+  ggtitle("SUPAxSPA")
+
+
+lvplot_ITxSPA<-love.plot(formula_match,
+                           data = df_ifull[[2]], estimand = "ATT",
+                           weights = list(w1 = get.w(match_models[[2]]),
+                                          w2 = get.w(matching_results_GEN[["ITxSPAratio_1"]])),
+                           thresholds = c(m = .1),
+                           shapes = c("circle filled", "circle", "circle"),
+                           colors = c("black", "blue", "darkgreen"),
+                           sample.names = c("full matching",
+                                            "genetic matching (K=1)")
+) + 
+  geom_vline(xintercept = c(-0.25, -0.5, 0.25, 0.5), 
+             linetype = "dashed",
+             color = c("green", "orange", "green", "orange"))+
+  ggtitle("ITxSPA")
+
+
+lvplot_ITxSUPA<-love.plot(formula_match,
+                         data = df_ifull[[3]], estimand = "ATT",
+                         weights = list(w1 = get.w(match_models[[3]]),
+                                        w2 = get.w(matching_results_GEN[["ITxSUPAratio_1"]])),
+                         thresholds = c(m = .1),
+                         shapes = c("circle filled", "circle", "circle"),
+                         colors = c("black", "blue", "darkgreen"),
+                         sample.names = c("full matching",
+                                          "genetic matching (K=1)")
+) + 
+  geom_vline(xintercept = c(-0.25, -0.5, 0.25, 0.5), 
+             linetype = "dashed",
+             color = c("green", "orange", "green", "orange"))+
+  ggtitle("ITxSUPA")
 
 # saving ----
 saveRDS(list(SUPAxSPA=match_models[[1]],
@@ -265,11 +303,6 @@ saveRDS(list(SUPAxSPA=df_ifull[[1]],
         ITxSPA=df_ifull[[2]],
         ITxSUPA=df_ifull[[3]]),
         "Outputs/Matched_data.rds")
-
-# pos-matching regression and robustness test ----
-
-
-
 
 
 
