@@ -129,27 +129,57 @@ for (i in seq_along(matched_data)) {
     
     # sensitive 
     # names(coef(model)) # run it outside of for when sensemark feature an Error
+    
+    if(outc %in% c("inc_pcp_by_area", "defor_amount")){
+      benchmark<-"dist_to_urban"
+    }
+    else(benchmark<-"inc_pcp_by_area")
+    
     sense_md<-sensemakr::sensemakr(
       model = model,  
       treatment= "Treat1", # I do not understand it well. 
-      benchmark_covariates = "dist_to_urban", 
+      benchmark_covariates = benchmark, 
       kd = 1:3)
     
     sense_models[[model_id]]<- sense_md
   }
 }
 
-out_glm_summary$SUPAxSPA_water #naive
-htcest_glm$SUPAxSPA_water # robust erro
-cluster_glm$SUPAxSPA_water # state cluster erro
-bounds_psens$SUPAxSPA_water # bound score
-sense_models$SUPAxSPA_water # sensitive
-summary(sense_models$SUPAxSPA_water)
-bounds_psens #good, Except for ITxSUPA abd SUPAxSPA_dead_less4year
+# matching results
+bounds_psens 
+#good, Except for ITxSUPA and SUPAxSPA_dead_less4year
+
+
+# OLS results
+out_glm_summary$ITxSUPA_defor_amount #naive
+htcest_glm$ITxSUPA_defor_amount # robust erro
+cluster_glm$ITxSUPA_defor_amount # state cluster erro
+# treatment was significant to:
+## SUPAxSPA -> (. - cluster) sanitation, 
+## ITxSPA -> (*** - naive) income
+## ITxSUPA -> (. - cluster) water
+#             (** - naive and cluster) dead_less4year
+
+#Just make sense test the sensibility of significant
+## SUPAxSPA -> (. - cluster) sanitation
+sense_models$SUPAxSPA_sanitation # sensitive
+summary(sense_models$SUPAxSPA_sanitation)
+## treatment is no significant
+
+## ITxSPA -> (*** - naive) income
+summary(sense_models$ITxSPA_inc_pcp_by_area)
+## treatment is significant (strong)
+
+## ITxSUPA -> (. - cluster) water
+summary(sense_models$ITxSUPA_water)
+## treatment is no significant
+
+#  ITxSUPA -> (** - naive and cluster) dead_less4year
+summary(sense_models$ITxSUPA_dead_less4year)
+## treatment is significant weekly
 
 
 # Spatial weight and Moran I test (spatial autocorrelation) ----
-
 
 #chosen K value
 for (k in c(4, 6, 8, 10)) {
