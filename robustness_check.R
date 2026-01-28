@@ -13,6 +13,7 @@ library(sensemakr)
 matched_data<-readRDS("Outputs/Matched_data.rds")
 
 # adding brazilian state code to our data
+
 code_states<-geobr::read_state(year = 2020) %>% 
   select(1, 2) %>% 
   mutate(across(.cols = c(1,2), .fns=as.factor)) %>% 
@@ -69,8 +70,8 @@ y_lm<-c("water", "sanitation",
      "dead_less4year", "inc_pcp_by_area", 
      "defor_amount")
 
-form_base<- "Treat + name_biome + subclass + Pop + elevation_mean + lat + long + dist_to_urban + PA_area + prec + expo_time + inc_pcp_by_area"
-form_inc <- "Treat + name_biome + subclass + Pop + elevation_mean + lat + long + dist_to_urban + PA_area + prec + expo_time"
+form_base<- "Treat + name_biome + Treat:name_biome + subclass + Pop + elevation_mean + lat + long + dist_to_urban + PA_area + prec + expo_time + inc_pcp_by_area"
+form_inc <- "Treat + name_biome + Treat:name_biome +subclass + Pop + elevation_mean + lat + long + dist_to_urban + PA_area + prec + expo_time"
 # PS: I need remove the scale because all PA here was 'federal'
 
 out_glm<-list()
@@ -149,6 +150,14 @@ for (i in seq_along(matched_data)) {
 bounds_psens 
 #good, Except for ITxSUPA and SUPAxSPA_dead_less4year
 
+# mudança. interação
+out_glm_summary$ITxSPA_inc_pcp_by_area -- mata atlantica e saiu treat
+out_glm_summary$ITxSUPA_water -- caatinga e cerrado
+out_glm_summary$ITxSUPA_sanitation -- cerrado
+out_glm_summary$ITxSUPA_dead_less4year -- treat
+out_glm_summary$ITxSUPA_inc_pcp_by_area -- treat, cerrado e mata atlântica
+out_glm_summary$ITxSUPA_defor_amount -- cerrado e mata atlântica
+Precisamos avaliar se o que vale é interação ou dividir os modelos
 
 # OLS results
 out_glm_summary$ITxSUPA_defor_amount #naive
@@ -247,9 +256,11 @@ for (w_name in names(spt_weights_kneighbor)) {
 
 # Results
 #Just both below were spatial autocorrelated:
+moranI_kneighbor$ITxSPA_inc_pcp_by_area
 #ITxSPA_inc_pcp_by_area p-value = 0.04628
 #Moran I statistic       Expectation          Variance 
 #      0.046791645      -0.002262443       0.000605892
+moranI_kneighbor$ITxSPA_defor_amount
 #ITxSPA_defor_amount p-value = 5.675e-05
 #Moran I statistic       Expectation          Variance 
 #     0.0750583148     -0.0022624434      0.0003688609
