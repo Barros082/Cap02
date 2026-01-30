@@ -139,7 +139,7 @@ done_QUI<-socioeco_QUI_end %>%
   right_join(dum_namesQUI, 
              by="name_qui") %>% 
   left_join(Br_qui, 
-            by="nm_comunid") %>%
+            by="nm_comunid") %>% 
   #select(new_code, fase, contains("dt_")) %>% View()
   mutate(new_code = str_replace(new_code,
                                 "__", "_"), 
@@ -166,18 +166,18 @@ done_QUI<-socioeco_QUI_end %>%
   #group_by(cd_uf) %>% summarise(n_distinct(new_code)) %>%  print(n=30)
   select(new_code, nm_comunid, new_cat,
          year_ref, ends_with("_qui"), 
-         -name_qui) %>% 
+         -name_qui, geometry) %>% 
   rename(
     PA_name=nm_comunid,
     Pop=pop_qui,  
     water=water_qui,  
     sanitation=sanit_qui,  
-    dead_less4year=dead4_qui
+    dead_less4year=dead4_qui, 
+    geom=geometry
   ) %>% 
   glimpse
 
 # saving ;) ----
-sf::write_sf(done_QUI, 
-             "Outputs/QUI_socio_data.gpkg")
-
+saveRDS(done_QUI, 
+        "Outputs/QUI_socio_data.gpkg")
 
