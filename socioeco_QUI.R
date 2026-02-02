@@ -65,7 +65,7 @@ Br_qui<-qui_shp %>% #dim() #445
 
 # IBGE 2022 data ----
 
-pop_qui<-read_xlsx("DATA/garbage/pop_QUI2022.xlsx")[-1:-5,c(-1, -4)] %>% 
+pop_qui<-read_xlsx("DATA/QUI_try2/QUI_all/pop_QUI2022.xlsx")[-1:-5,c(-1, -4)] %>% 
   drop_na() %>% 
   rename(fakeid=`...2`, 
          name_qui=`...3`,
@@ -175,9 +175,10 @@ done_QUI<-socioeco_QUI_end %>%
     dead_less4year=dead4_qui, 
     geom=geometry
   ) %>% 
+  drop_na() %>% # 2 rows (marques and nova batalhinha - both has X in some IBGE var)
   glimpse
 
 # saving ;) ----
 saveRDS(done_QUI, 
-        "Outputs/QUI_socio_data.gpkg")
+        "Outputs/QUI_socio_data.rds")
 
