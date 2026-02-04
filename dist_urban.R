@@ -11,7 +11,7 @@ sf::sf_use_s2(F)
 terraOptions(tempdir = here("temp_terra"))
 # https://www.geoaplicada.com/dados/territorios-quilombolas/
 ## PA shapes
-PA_shape<-read_sf("Outputs/PA_IT_shape.gpkg")
+PA_shape<-read_sf("Outputs/PA_IT_QUI_shape.gpkg")
 
 pointss <- PA_shape %>%
   st_transform("EPSG:4326") %>%
@@ -66,6 +66,6 @@ dist_df <- tibble(
   dist_to_urban = as.numeric(dist_vals) 
 )
 
-saveRDS(dist_df, "Outputs/PA_distance.rds")
+saveRDS(dist_df, "Outputs/PA_dist_urban.rds")
 
 
