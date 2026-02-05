@@ -8,11 +8,11 @@ library(exactextractr)
 library(here)
 sf::sf_use_s2(F)
 
-Sys.setenv(TMPDIR = "D:/Arthur_Barros/Doutorado/CAP02/Cap02/temp")
-terraOptions(tempdir = "D:/Arthur_Barros/Doutorado/CAP02/Cap02/temp")
+Sys.setenv(TMPDIR = "D:/temp")
+terraOptions(tempdir = "D:/temp")
 
 # data 
-PA_shape<-read_sf("Outputs/PA_IT_shape.gpkg")
+PA_shape<-read_sf("Outputs/PA_IT_QUI_shape.gpkg")
 
 list_clim_files <- list.files(
   here("DATA/WorldClim"),
@@ -63,5 +63,8 @@ res_final %>%  summary()
 PA_with_clim <- PA_shape %>%
   left_join(res_final, by = c("new_code"="id")) %>% 
   glimpse
+
+#PA_with_clim %>% 
+#  filter(is.na(tmax)) %>%  glimpse #just 3NA (2 PI and 1 APA)
 
 write_sf(PA_with_clim, "Outputs/PA_climatic.gpkg")

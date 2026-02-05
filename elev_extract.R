@@ -9,10 +9,10 @@ library(exactextractr)
 library(geobr)
 
 sf::sf_use_s2(F)
-Sys.setenv(TMPDIR = "D:/Arthur_Barros/Doutorado/CAP02/Cap02/temp")
-terraOptions(tempdir = "D:/Arthur_Barros/Doutorado/CAP02/Cap02/temp")
+Sys.setenv(TMPDIR = "D:/temp")
+terraOptions(tempdir = "D:/temp")
 
-PA_shape<-read_sf("Outputs/PA_IT_shape.gpkg")
+PA_shape<-read_sf("Outputs/PA_IT_QUI_shape.gpkg")
 
 elev_fabdem<-read_sf("DATA/FABDEM_data_elevation/FABDEM_v1-2_tiles.geojson") %>% 
   st_transform("EPSG:4674")
@@ -25,15 +25,16 @@ tile_files2 <- files_br %>%
   dplyr::select(new_code, file_name) %>%
   distinct()
 
-all_files<-list.files("DATA/FABDEM_data_elevation/All", 
+all_files<-list.files("D:/Arthur/Dr_cap02/Cap02/DATA/FABDEM_data_elevation/All", 
            pattern = "\\.tif$", full.names = TRUE)
 
 
 # filtering and fixing names ----
 
 path_code<-tile_files2 %>%  
-  mutate(dum01="DATA", dum02="FABDEM_data_elevation",
-         dum03="All",
+  mutate(dum01="D:/Arthur/Dr_cap02/Cap02/DATA",
+         dum02="FABDEM_data_elevation",
+         dum03="All/All",
          path=paste(dum01, dum02, dum03, file_name, sep="/"), 
          new_code=as.factor(new_code)) %>% 
   dplyr::select(new_code, path) %>% 

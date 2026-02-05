@@ -61,6 +61,20 @@ PA_shape<-bind_rows(UC_shape, IT_shape) %>%
          everything()) %>%  glimpse #1240
   
 # We need to collect manually the years from each IT. 
-write_sf(PA_shape, "Outputs/PA_IT_shape.gpkg") #1240 
+#write_sf(PA_shape, "Outputs/PA_IT_shape.gpkg") #1240 
 
+# adding QUI
+#PA_shape<-read_sf("Outputs/PA_IT_shape.gpkg")
+
+PA_IT_QUI<-PA_shape %>% 
+  bind_rows(readRDS("Outputs/QUI_socio_data.rds") %>%
+              rename(geometry=geom) %>% 
+              mutate(year_ref=as.character(year_ref))) %>% 
+  st_as_sf() %>% 
+  #st_crs() #4674
+  #mutate(testgeo=st_is_valid(geometry)) %>% 
+  #filter(testgeo==F) %>% 
+  glimpse
+
+write_sf(PA_IT_QUI, "Outputs/PA_IT_QUI_shape.gpkg") #1339
 
