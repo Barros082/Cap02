@@ -6,6 +6,7 @@ library(raster)
 library(terra)
 library(exactextractr)
 library(geobr)
+library(beepr)
 
 sf::sf_use_s2(F)
 terraOptions(tempdir = here("temp_terra"))
@@ -49,7 +50,7 @@ for (nm in seq_along(list_LU22_files_2)) {
 #urb_br<-do.call(merge, r_proj_all)
 #plot(urb_br)
 #terra::writeRaster(urb_br, "Outputs/temporarios/urb_br_temp03.tif")
-#urb_br<-rast("Outputs/temporarios/urb_br_temp03.tif")
+urb_br<-rast("Outputs/temporarios/urb_br_temp03.tif")
 
 urb_br_agg <- aggregate(
   urb_br,
@@ -58,33 +59,15 @@ urb_br_agg <- aggregate(
   na.rm = TRUE)
 
 dist_terra<-distance(urb_br_agg)
+beep()
 
 dist_vals <- terra::extract(
   dist_terra,
   vect(pointss_5880),
   bind = TRUE)
-dist_vals
-PA_shape_dist_agr<-as.data.frame(dist_vals) %>%  
-  rename(dist_agr=classification_2022 ) %>%  glimpse
+
+PA_shape_dist_urb<-as.data.frame(dist_vals) %>%  
+  rename(dist_urb=classification_2022) %>%  glimpse
 
 
-
-#  garbage ----
-urb_poly1 <- as.polygons(urb_br, values = TRUE, na.rm = TRUE)
-urb_poly3 <- aggregate(urb_poly1)                       
-urb_poly4 <- st_as_sf(urb_poly3)                        
-urb_poly5 <- st_make_valid(urb_poly4)
-nearest_idx <- st_nearest_feature(pointss_5880,
-                                  urb_poly5)
-dist_vals <- st_distance(pointss_5880, 
-                         urb_poly5[nearest_idx, ],
-                         by_element = TRUE) #meters
-
-dist_df <- tibble(
-  new_code = pointss_5880$new_code,
-  dist_to_urban = as.numeric(dist_vals) 
-)
-
-saveRDS(dist_df, "Outputs/PA_dist_urban.rds")
-
-
+saveRDS(PA_shape_dist_urb, "Outputs/PA_dist_urban.rds")
