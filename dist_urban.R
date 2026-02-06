@@ -51,6 +51,25 @@ for (nm in seq_along(list_LU22_files_2)) {
 #terra::writeRaster(urb_br, "Outputs/temporarios/urb_br_temp03.tif")
 #urb_br<-rast("Outputs/temporarios/urb_br_temp03.tif")
 
+urb_br_agg <- aggregate(
+  urb_br,
+  fact = 2,   #~60 m pixels
+  fun = max,
+  na.rm = TRUE)
+
+dist_terra<-distance(urb_br_agg)
+
+dist_vals <- terra::extract(
+  dist_terra,
+  vect(pointss_5880),
+  bind = TRUE)
+dist_vals
+PA_shape_dist_agr<-as.data.frame(dist_vals) %>%  
+  rename(dist_agr=classification_2022 ) %>%  glimpse
+
+
+
+#  garbage ----
 urb_poly1 <- as.polygons(urb_br, values = TRUE, na.rm = TRUE)
 urb_poly3 <- aggregate(urb_poly1)                       
 urb_poly4 <- st_as_sf(urb_poly3)                        
