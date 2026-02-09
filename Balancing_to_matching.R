@@ -6,14 +6,14 @@ library(sf)
 sf_use_s2(F)
 
 # Join
-PA_full <-read_sf("Outputs/PA_IT_shape.gpkg") %>% 
+PA_full <-read_sf("Outputs/PA_IT_QUI_shape.gpkg") %>% 
   left_join(readRDS("Outputs/UC_socio_data.rds") %>%
               st_drop_geometry() %>% 
               select(COD_UC, ESFERA) %>% 
               mutate(COD_UC=as.character(COD_UC)),
             by="COD_UC") %>% 
   mutate(PA_scale=case_when(
-    new_cat == "IT" ~ "Federal", 
+    new_cat %in% c("IT", "QUI") ~ "Federal", 
     TRUE ~ ESFERA
   )) %>% 
   select(-ESFERA) %>% 
@@ -25,7 +25,17 @@ PA_full <-read_sf("Outputs/PA_IT_shape.gpkg") %>%
               st_drop_geometry() %>% 
               select(new_code, elevation_mean),
             by="new_code") %>% 
-  left_join(readRDS("Outputs/PA_distance.rds"),
+  left_join(read_sf("Outputs/PA_dist_energy_roads.gpkg") %>%
+              st_drop_geometry() %>% 
+              select(new_code, contains("dist_")),
+            by="new_code") %>%
+  left_join(read_sf("Outputs/PA_cover2000.gpkg") %>%
+              st_drop_geometry() %>% 
+              select(new_code, forest_cover_2000),
+            by="new_code") %>%
+  left_join(readRDS("Outputs/PA_dis_agr.rds"),
+            by="new_code") %>%
+  left_join(readRDS("Outputs/PA_dist_urban.rds"),
             by="new_code") %>%
   left_join(read_sf("Outputs/PA_defor.gpkg") %>%
               st_drop_geometry() %>% 
@@ -34,13 +44,13 @@ PA_full <-read_sf("Outputs/PA_IT_shape.gpkg") %>%
   glimpse
 
 # cleaning and add IT year ----
-PA_full %>%  summary()
+PA_full %>%  summary() #1339
 # climatic had 3 NA
-# defor featured 1 NA
 
 to_fill_TIyear<-PA_full %>% 
-  filter(!is.na(prec) & !is.na(defor_amount)) %>% #dim() #1248 - right!
-  select(-COD_UC:-code_it_dummy) %>% 
+  select(-COD_UC:-code_it_dummy, 
+         -lit, -waste) %>%
+  filter(!is.na(prec)) %>% #dim() #1336 - right!
   mutate(
     across(.cols = c(new_cat, new_code), .fns=as.factor),
     year_ref=as.numeric(year_ref)
@@ -80,15 +90,15 @@ PA_almost_done<-PA_full %>%
       TRUE ~ year_ref),
     yr=coalesce(year_ref, yr_rf), 
     yr=as.numeric(yr)) %>% 
-  filter(dum!="remove") %>% 
+  filter(dum!="remove") %>% #dim() #1316
   select(-year_ref, -COD_UC:-code_it_dummy, 
-         -yr_rf, -dum) %>% 
+         -yr_rf, -dum, -lit, -waste) %>% 
   filter(yr<=2022) %>%
-  glimpse
+  glimpse #1305
 
 # Estimating PA area
 PA_finished<-PA_almost_done %>% 
-  st_transform(., "EPSG:5880") %>% #1209
+  st_transform(., "EPSG:5880") %>% #1305
   st_make_valid() %>% 
   mutate(
     PA_area=st_area(geom), # m²
@@ -96,11 +106,10 @@ PA_finished<-PA_almost_done %>%
     expo_time=(yr-2022)*-1, 
     testgeom=st_is_valid(geom)
   ) %>% 
-  filter(!is.na(defor_amount)) %>% 
-  filter(!is.na(prec)) %>%
+  filter(!is.na(prec)) %>% #dim() #1302
   #filter(testgeom==FALSE) %>% glimpse # 0 
   select(-yr, -testgeom) %>% 
-  glimpse()  #1205
+  glimpse()  #1302
 
 #how many PA we have for each biome? ----
 biomas<-geobr::read_biomes() %>% 
@@ -126,7 +135,7 @@ duplicated_by_biome<-st_intersection(PA_finished, biomas) %>%
   st_drop_geometry() %>% 
   mutate(test=duplicated(new_code)) %>% 
   filter(test==TRUE) %>% 
-  glimpse#83
+  glimpse#85
 
 
 st_intersection(PA_finished, biomas) %>% 
@@ -146,19 +155,19 @@ st_intersection(PA_finished, biomas) %>%
 
 PA_done<-st_intersection(PA_finished, biomas) %>% 
   #st_drop_geometry() %>%
-  filter(!new_code%in%duplicated_by_biome$new_code) %>%
+  filter(!new_code%in%duplicated_by_biome$new_code) %>% #dim() # 1217
   #ggplot()+geom_sf()
   mutate(
     centroid=st_centroid(geom),
     lat=st_coordinates(centroid)[,2],
     long=st_coordinates(centroid)[,1], 
-  ) %>% #1122
-  # removing PA from states and municipals. 
+  ) %>% #1217
+  # PA from states and municipals. 
   #st_drop_geometry() %>% 
   #filter(!new_cat%in%c("APA", "ARIE", "RPPN")) %>% 
   #group_by(name_biome, new_cat, PA_scale) %>% 
   #summarise(sum_PA=n_distinct(new_code)) %>%  print(n=30)
-  filter(PA_scale=="Federal") %>% 
+  filter(PA_scale=="Federal") %>% #dim() #686 
   # Estimating the final PA amount. 
   #st_drop_geometry() %>% 
   #filter(!new_cat%in%c("APA", "ARIE", "RPPN")) %>% 
@@ -167,17 +176,15 @@ PA_done<-st_intersection(PA_finished, biomas) %>%
   #summarise(sum_PA=n_distinct(new_code)) %>% print(n=60)
   glimpse 
 
-
-
 saveRDS(PA_done, "Outputs/PA_balanced.rds")
 
 
 # understand how many PA we have----
 
 # are there PA the was in more than 1 state?
-#PA_state<-readRDS("Outputs/PA_balanced.rds") %>% #591
-#  filter(!new_cat%in%c("APA", "RPPN", "ARIE")) %>% #557
-#  filter(!name_biome%in%c("Pampa", "Pantanal")) %>% #550
+#PA_state<-readRDS("Outputs/PA_balanced.rds") %>% #686
+#  filter(!new_cat%in%c("APA", "RPPN", "ARIE")) %>% #dim()#651
+#  filter(!name_biome%in%c("Pampa", "Pantanal")) %>% #dim()#637
 #  st_intersection(., 
 #                  geobr::read_state() %>%  
 #                    select(1:2, geom) %>% 
