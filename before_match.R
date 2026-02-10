@@ -4,10 +4,10 @@ library(tidyverse)
 library(sf)
 library(corrplot)
 
-PA_data<-readRDS("Outputs/PA_balanced_with_incpcp.rds") %>% #591
-  filter(!new_cat%in%c("RPPN", "ARIE", "APA")) %>%  #557
-  filter(!name_biome%in%c("Pampa", "Pantanal")) %>% #550
-  select(-code_tract, -lit) %>% 
+PA_data<-readRDS("Outputs/PA_balanced_with_incpcp.rds") %>% #686 
+  filter(!new_cat%in%c("RPPN", "ARIE", "APA")) %>% #651
+  filter(!name_biome%in%c("Pampa", "Pantanal")) %>% #637
+  #select(-code_tract, -lit) %>% 
   glimpse
 
 # correlation ----
@@ -16,32 +16,41 @@ corr_data<-PA_data %>%
   select(-1:-3, 
          -yr_creation, -PA_scale,
          -name_biome:-centroid,
-         #-water:-dead_less4year,
-         #-defor_amount,
-         #-tmin, -tmax,
-         -geom) %>%  glimpse
+         -water:-dead_less4year,
+         -defor_amount,
+         -inc_pcp2022_by_area,
+         ) %>%  glimpse
 
 corr_matrix <- cor(corr_data)
 
-corrplot(corr_matrix, method = "circle", 
-         tl.col = "black", tl.srt = 45, addCoef.col = "black")
+corrplot(corr_matrix, method = "number", 
+         tl.col = "black", tl.srt = 20, addCoef.col = "black")
 #correlation vars:
-# tmin~tmax
-# pop~water e pop~dead
-# sanitation~waste
+# agua ~ pop
+#pop ~ agua e dead
+#tmin ~ tmax, elevation,lat
+#tmax ~ tmin e lat
+#elevation ~ tmin
+#dist_energy~~ dist_roads
+#dist_roads~dist_energy
+#forest_cover_2000~PA_Area
+#lat~tmin e tmax
 
 #considering 0.7 as threshold, we will remove only the covariates:
-# tmin and tmax
+# tmin, tmax, forest_cover_2000, dist_energy
 
-PA_matching_step01 <- PA_data %>%
+PA_matching_step01 <- PA_data %>% 
   st_drop_geometry() %>% 
   select(-tmin, -tmax, # correlated
+         -forest_cover_2000, -dist_energy, # correlated
          -yr_creation, -centroid, #dummies
+         -PA_scale, #dummies
          -water:-dead_less4year, #outputs 
-         -inc_pcp_by_area, #outputs
+         -inc_pcp2022_by_area, #outputs
          -defor_amount) %>% 
   group_by(new_cat) %>% 
   group_split()
+# 1=IT, 2=PI, 3=QUI, 4=US
 
 # splitting data by binomial treatments comparisons ---- 
 SUPAxSPA<-full_join(PA_matching_step01[[3]],
