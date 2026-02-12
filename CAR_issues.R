@@ -25,7 +25,9 @@ t_AC_peri %>%  summary()
 t_AC_intersec<-st_intersection(PA_shape, t_AC_peri) %>% 
   glimpse
 
-t_AC_intersec %>%  summary()
+t_AC_intersec %>%  
+  mutate(new_cat=as.factor(new_cat)) %>% 
+  summary()
 # ind_status: SU=0
 # des_condic : Cancelado por decisao administrativa=762
 # there are CAR above 2022

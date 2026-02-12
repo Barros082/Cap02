@@ -53,7 +53,7 @@ PA_matching_step01 <- PA_data %>%
 # 1=IT, 2=PI, 3=QUI, 4=US
 
 # splitting data by binomial treatments comparisons ---- 
-SUPAxSPA<-full_join(PA_matching_step01[[3]],
+SUPAxSPA<-full_join(PA_matching_step01[[4]],
                     PA_matching_step01[[2]]) %>% 
   mutate(Treat=case_when(
     new_cat=="US"~1,
@@ -65,15 +65,15 @@ ITxSPA<-full_join(PA_matching_step01[[1]],
     new_cat=="IT"~1,
     TRUE ~0))%>% 
   glimpse
-ITxSUPA<-full_join(PA_matching_step01[[1]], 
-                   PA_matching_step01[[3]]) %>% 
+QUIxSPA<-full_join(PA_matching_step01[[3]], 
+                   PA_matching_step01[[2]]) %>% 
   mutate(Treat=case_when(
-    new_cat=="IT"~1,
+    new_cat=="QUI"~1,
     TRUE ~0))%>% 
   glimpse
 
-PA_matching_list<-list(SUPAxSPA, ITxSPA, ITxSUPA)
-PA_matching_names<-c("SUPAxSPA", "ITxSPA", "ITxSUPA")
+PA_matching_list<-list(SUPAxSPA, ITxSPA, QUIxSPA)
+PA_matching_names<-c("SUPAxSPA", "ITxSPA", "QUIxSPA")
 
 PA_matching_list_step02<-lapply(PA_matching_list, function(x){
   df_x<-x %>% 
@@ -82,7 +82,9 @@ PA_matching_list_step02<-lapply(PA_matching_list, function(x){
     mutate(
       across(.cols = c(new_code, new_cat, 
                        name_biome), .fns=as.factor), 
-      PA_area=as.numeric(PA_area)
+      PA_area=as.numeric(PA_area), 
+      geometry= st_geometry(PA_data)[match(new_code, 
+                                            PA_data$new_code)]
     ) %>% 
     glimpse
   
@@ -173,10 +175,15 @@ for(i in 1:length(test_within_geom)) {
 }
 #lapply(graphics_overlap, names)
 
-PA_matching_list_step02[[2]] %>% 
-  filter(new_code=="IT_5517") %>% # too small that we can't see
-  st_as_sf() %>% 
-  ggplot()+geom_sf()
+#PA_matching_list_step02[[2]] %>% 
+#  filter(new_code=="IT_5517") %>% # too small that we can't see
+#  st_as_sf() %>% 
+#  ggplot()+geom_sf()
+
+#PA_matching_list_step02[[3]] %>% 
+#  filter(new_code=="QUI_8070") %>% # too small that we can't see
+#  st_as_sf() %>% 
+#  ggplot()+geom_sf()
 
 # removing UCS with overposition ----
 data_to_match<-list()
@@ -211,23 +218,7 @@ for (i in seq_along(PA_matching_list_step02)) {
   if(i==3){
     data_to_match[[i]]<-df_i %>% 
       filter(!new_code%in%c(
-        "IT_8656", "UC_11193",
-        "IT_8532", "UC_14320", 
-        "IT_8788", 
-        "UC_14583",
-        "IT_7609", "UC_15903", 
-        "IT_50014", "UC_50205", 
-        "IT_9580",
-        "IT_9504", "UC_50208", 
-        "IT_50011", "UC_50209", 
-        "IT_50455",
-        "IT_9589",
-        "IT_50025", "UC_50214", 
-        "IT_8524", "UC_50220", 
-        "IT_9423", "UC_50375",
-        "IT_9490",
-        "IT_14923", "UC_50407", 
-        "IT_6696"
+        "QUI_8070", "UC_00175"
       ))
   }
 }
