@@ -4,8 +4,34 @@ library(tidyverse)
 library(sf)
 library(MatchIt)
 library(cobalt)
+library(corrplot)
 
 PA_matching_list<-readRDS("Outputs/data_to_match.rds")
+
+
+PA_matching_list<-readRDS("Outputs/data_to_match.rds")
+pageral<-readRDS("Outputs/PA_balanced_with_incpcp.rds")
+
+
+lapply(PA_matching_list, function(x){
+  x %>% 
+    mutate(yr_creation=pageral$yr_creation[match(new_code, 
+                                                 pageral$new_code)],
+           yr_class=case_when(
+             yr_creation>=2001 ~ "inc_>=2001", 
+             yr_creation==2000 ~ "inc_=2000", 
+             TRUE~ "exclude"
+           ),
+           yr_class=as.factor(yr_class)) %>%
+    filter(yr_class=="inc_>=2001") %>% 
+    group_by(name_biome, new_cat, yr_class) %>% 
+    summarise(n=n())
+})
+
+
+
+
+
 
 matching_results_FM <- list()
 matching_results_GEN <- list()
@@ -16,12 +42,13 @@ love_plots <- list()
 love_plots2 <- list()
 kvalue<-c(1, 5, 10)
 
+
 for (i in seq_along(PA_matching_list)) {
   
   df <- PA_matching_list[[i]]
   df_name <- names(PA_matching_list)[i]
   
-  names_cofc <- df %>% dplyr::select(6:14, -PA_scale) %>% colnames()
+  names_cofc <- df %>% dplyr::select(6:16) %>% colnames()
   names_cofc_vector <- unlist(strsplit(paste(names_cofc,
                                   collapse = " + "), " \\+ "))
   formula_match <- as.formula(paste("Treat ~",
@@ -38,7 +65,7 @@ for (i in seq_along(PA_matching_list)) {
       link = "logit", 
       exact = ~ name_biome,
       estimand = "ATT",
-      pop.size = 500,
+      pop.size = 500, #100 and 500
       verbose = FALSE,
       include.obj = FALSE
     )
@@ -99,13 +126,98 @@ for (i in seq_along(PA_matching_list)) {
 # results 
 # FM _______________
 #supa x spa 
-# pop, expo time, long
-#it x spa
-# elevation, expo time, long, lat
-#it x supa
-# prec, elevation
+# Pop, prec, dist_roads, expo_time, inc2000
+# it x spa
+# elevation, expo time
+# qui x spa
+# completely separated between T and C
+PA_matching_list$QUIxSPA %>% 
+  mutate(ps = match_model_fm$distance) %>%
+  group_by(name_biome, Treat) %>%
+  summarise(min_ps = min(ps),
+            max_ps = max(ps),
+            .groups = "drop")
+PA_matching_list$QUIxSPA %>% 
+  group_by(name_biome, Treat) %>%
+  summarise(n = n())
+
+glm_QUIxSPA <- glm(formula_match,
+                   data = PA_matching_list$QUIxSPA,
+                   family = binomial)
+summary(glm_QUIxSPA)
+
+library(caret)
+model_matrix <- model.matrix(formula_match, 
+                             data = PA_matching_list$QUIxSPA)
+caret::findLinearCombos(model_matrix)
+
+glm_QUIxSPA <- glm(Treat ~ lat + long,
+                   data = PA_matching_list$QUIxSPA,
+                   family = binomial)
+summary(glm_QUIxSPA)
+
+glm_QUIxSPA_2 <- glm(Treat ~ lat + long + prec + elevation_mean,
+                     data = PA_matching_list$QUIxSPA,
+                     family = binomial)
+summary(glm_QUIxSPA_2)
+
+glm_QUIxSPA_3 <- glm(Treat ~ lat + long + prec + elevation_mean + expo_time,
+                     data = PA_matching_list$QUIxSPA,
+                     family = binomial)
+summary(glm_QUIxSPA_3)
+
+glm_QUIxSPA_4 <- glm(Treat ~ lat + long + prec + elevation_mean + expo_time + PA_area,
+                     data = PA_matching_list$QUIxSPA,
+                     family = binomial)
+summary(glm_QUIxSPA_4)
+
+glm_QUIxSPA_5 <- glm(Treat ~ PA_area,
+                     data = PA_matching_list$QUIxSPA,
+                     family = binomial)
+summary(glm_QUIxSPA_5)
+# AREA DETERMITCALLY PREDICTS QUI/PI
+
+glm_QUIxSPA_6 <- glm(Treat ~ lat + long + prec + elevation_mean + expo_time + Pop,
+                     data = PA_matching_list$QUIxSPA,
+                     family = binomial)
+
+glm_QUIxSPA_7 <- glm(Treat ~ lat + long + prec + elevation_mean + expo_time + Pop + inc_pcp2000_by_area,
+                     data = PA_matching_list$QUIxSPA,
+                     family = binomial)
+
+glm_QUIxSPA_8 <- glm(Treat ~ lat + long + prec + elevation_mean + expo_time + Pop + inc_pcp2000_by_area,
+                     data = PA_matching_list$QUIxSPA,
+                     family = binomial)
+
+glm_QUIxSPA_9 <- glm(Treat ~ lat + long + prec + elevation_mean + expo_time + Pop + inc_pcp2000_by_area + dist_roads,
+                     data = PA_matching_list$QUIxSPA,
+                     family = binomial)
+
+glm_QUIxSPA_10 <- glm(Treat ~ dist_roads,
+                      data = PA_matching_list$QUIxSPA,
+                      family = binomial)
+# DIST_ROADS DETERMITCALLY PREDICTS QUI/PI
+
+glm_QUIxSPA_11 <- glm(Treat ~ lat + long + prec + elevation_mean + expo_time + Pop + inc_pcp2000_by_area + dist_agr,
+                      data = PA_matching_list$QUIxSPA,
+                      family = binomial)
+glm_QUIxSPA_11_1 <- glm(Treat ~ dist_agr,
+                        data = PA_matching_list$QUIxSPA,
+                        family = binomial)
+# DIST_AGR DETERMITCALLY PREDICTS QUI/PI
+
+glm_QUIxSPA_12 <- glm(Treat ~ lat + long + prec + elevation_mean + expo_time + Pop + inc_pcp2000_by_area + dist_urb,
+                      data = PA_matching_list$QUIxSPA,
+                      family = binomial)
+glm_QUIxSPA_12_1 <- glm(Treat ~ dist_urb,
+                        data = PA_matching_list$QUIxSPA,
+                        family = binomial)
+
+
+
+
 # GEN ______________
-## using pop.size=100 --> All were really bad than FM
+## using pop.size=100 -->
 ## using pop.size=500 --> All were really bad than FM
 # SUPA x SUP -> 10 and 5 were better than 1, and really similar. But fM was better 
 # ITxSPA and ITxSUPA -> 1 was better than 5/10. But FM was just better than it. 
