@@ -94,3 +94,47 @@ corrplot(corr_matrix, method = "number",
          tl.col = "black", tl.srt = 20, addCoef.col = "black")
 
 corr_data %>%  summary()
+
+### testin before 2000 data ----
+# impossible. We do not have Ct to <2000
+#urb_1991<-geobr::read_census_tract(
+#  "all",
+#  year = 1991,
+#  zone = "urban",
+#  simplified = F,
+#  showProgress = TRUE,
+#  cache = F
+#) %>%  glimpse
+
+# I mannually download 1991 data
+library(foreign)
+
+NO_21<-read.dbf("DATA/IBGE1991/Dados/Região Nordeste/CD91AMOUP21.DBF")
+
+NO_21 %>%  head()
+
+dic_dados<-readxl::read_xls("DATA/IBGE1991/Documentação/Dicionário 1991.xls")
+
+
+div_ter<-readxl::read_xls("DATA/IBGE1991/Divisão Territorial do Brasil/DTB Municipios 1991.xls")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
