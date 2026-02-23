@@ -126,11 +126,79 @@ for (i in seq_along(PA_matching_list)) {
 # results 
 # FM _______________
 #supa x spa 
-# Pop, prec, dist_roads, expo_time, inc2000
+### Pop, prec, dist_roads, expo_time, inc2000
 # it x spa
-# elevation, expo time
+### elevation, expo time
 # qui x spa
-# completely separated between T and C
+### completely separated between T and C. Looking for which var is responsible for it. 
+# GEN ______________
+### using pop.size=100 --> All were really bad than FM
+### using pop.size=500 --> All were really bad than FM
+
+# balancing vars ----
+##### SUPAxSPA -----
+rmk.SUPAxSPA<-PA_matching_list[[1]] %>% 
+  select(-Pop, 
+         - prec,
+         - dist_roads,
+         - expo_time, 
+         #- inc_pcp2000_by_area, 
+         - PA_area, 
+         - dist_agr
+         ) %>% glimpse
+rmk.SUPAxSPA_formula_match <- update(formula_match, . ~ .
+                                    - Pop
+                                    - prec
+                                    - dist_roads
+                                    - expo_time 
+                                    #- inc_pcp2000_by_area
+                                    - PA_area
+                                    - dist_agr
+                                    )
+rmk.SUPAxSPA_match_model <- matchit(rmk.SUPAxSPA_formula_match, 
+                                   data = rmk.SUPAxSPA, 
+                                   method = "full", 
+                                   distance = "glm",
+                                   link = "logit", 
+                                   exact = ~ name_biome,
+                                   estimand = "ATT",
+                                   verbose = TRUE,
+                                   include.obj = FALSE)
+balance_tab_FM[["SUPAxSPA"]]
+bal.tab(rmk.SUPAxSPA_match_model, thresholds = c(m = .25), 
+        v.threshold = 2, un = TRUE) #balanced
+# pop, prec, dist_roads, expo_time, PA_area, dist_agr
+summary(weights(matching_results_FM$SUPAxSPA))
+summary(weights(rmk.SUPAxSPA_match_model))
+
+##### ITxSPA -----
+rmk.ITxSPA<-PA_matching_list[[2]] %>% 
+  select(-expo_time, -elevation_mean 
+         ) %>% glimpse
+rmk.ITxSPA_formula_match <- update(formula_match, . ~ .
+                                   - expo_time
+                                   - elevation_mean 
+                                   )
+rmk.ITxSPA_match_model <- matchit(rmk.ITxSPA_formula_match, 
+                                  data = rmk.ITxSPA, 
+                                  method = "full", 
+                                  distance = "glm",
+                                  link = "logit", 
+                                  exact = ~ name_biome,
+                                  estimand = "ATT",
+                                  verbose = TRUE,
+                                  include.obj = FALSE)
+balance_tab_FM[["ITxSPA"]]
+bal.tab(rmk.ITxSPA_match_model, thresholds = c(m = .25), 
+        v.threshold = 2, un = TRUE) # balanced
+# removed expo_time and elevation_mean 
+
+plot(matching_results_FM$ITxSPA, type = "hist")
+plot(rmk.ITxSPA_match_model, type = "hist")
+summary(weights(matching_results_FM$ITxSPA))
+summary(weights(rmk.ITxSPA_match_model))
+
+##### QUIxSPA -----
 PA_matching_list$QUIxSPA %>% 
   mutate(ps = match_model_fm$distance) %>%
   group_by(name_biome, Treat) %>%
@@ -213,86 +281,6 @@ glm_QUIxSPA_12_1 <- glm(Treat ~ dist_urb,
                         data = PA_matching_list$QUIxSPA,
                         family = binomial)
 
-
-
-
-# GEN ______________
-## using pop.size=100 -->
-## using pop.size=500 --> All were really bad than FM
-# SUPA x SUP -> 10 and 5 were better than 1, and really similar. But fM was better 
-# ITxSPA and ITxSUPA -> 1 was better than 5/10. But FM was just better than it. 
-
-# balancing vars ----
-# SUPAxSPA
-rmk.SUPAxSPA<-PA_matching_list[[1]] %>% 
-  select(-Pop, -expo_time, -long, 
-         #- prec, -PA_area
-         ) %>% glimpse
-rmk.SUPAxSPA_formula_match <- update(formula_match, . ~ .
-                                    - Pop
-                                    - expo_time
-                                    - long
-                                    #- prec
-                                    #- PA_area
-                                    )
-rmk.SUPAxSPA_match_model <- matchit(rmk.SUPAxSPA_formula_match, 
-                                   data = rmk.SUPAxSPA, 
-                                   method = "full", 
-                                   distance = "glm",
-                                   link = "logit", 
-                                   exact = ~ name_biome,
-                                   estimand = "ATT",
-                                   verbose = TRUE,
-                                   include.obj = FALSE)
-balance_tab_FM[["SUPAxSPA"]]
-bal.tab(rmk.SUPAxSPA_match_model, thresholds = c(m = .25), 
-        v.threshold = 2, un = TRUE) # non balanced
-# if we remove the three unbalanced, appear more 2 (PA_area, precp)
-# if we remove all these five, distance will be unbalanced
-
-# ITxSPA
-rmk.ITxSPA<-PA_matching_list[[2]] %>% 
-  select(-expo_time, -elevation_mean 
-         ) %>% glimpse
-rmk.ITxSPA_formula_match <- update(formula_match, . ~ .
-                                   - expo_time
-                                   - elevation_mean 
-                                   )
-rmk.ITxSPA_match_model <- matchit(rmk.ITxSPA_formula_match, 
-                                  data = rmk.ITxSPA, 
-                                  method = "full", 
-                                  distance = "glm",
-                                  link = "logit", 
-                                  exact = ~ name_biome,
-                                  estimand = "ATT",
-                                  verbose = TRUE,
-                                  include.obj = FALSE)
-balance_tab_FM[["ITxSPA"]]
-bal.tab(rmk.ITxSPA_match_model, thresholds = c(m = .25), 
-        v.threshold = 2, un = TRUE) # balanced
-# removed expo_time and elevation_mean 
-
-# ITxSUPA
-rmk.ITxSUPA<-PA_matching_list[[3]] %>% 
-  select(-elevation_mean, -prec
-  ) %>% glimpse
-rmk.ITxSUPA_formula_match <- update(formula_match, . ~ .
-                                   - elevation_mean
-                                   - prec
-)
-rmk.ITxSUPA_match_model <- matchit(rmk.ITxSUPA_formula_match, 
-                                  data = rmk.ITxSUPA, 
-                                  method = "full", 
-                                  distance = "glm",
-                                  link = "logit", 
-                                  exact = ~ name_biome,
-                                  estimand = "ATT",
-                                  verbose = TRUE,
-                                  include.obj = FALSE)
-balance_tab_FM[["ITxSUPA"]]
-bal.tab(rmk.ITxSUPA_match_model, thresholds = c(m = .25), 
-        v.threshold = 2, un = TRUE) # balanced
-#removed elevation and precipitation
 
 # preparing data after match ----
 match_models<-list(
